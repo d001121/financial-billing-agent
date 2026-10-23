@@ -88,3 +88,5 @@
 record_review_decision的reply_id改为官方InjectedToolArg隐藏参数，ToolRuntime从原生运行config获得预算回合，绑定已保存human_turn.reply_id。模型只提交业务动作及字段，不再抄内部回复ID；旧检查点及确定性调用的显式ID仍可兼容，但不能覆盖当前运行绑定或将旧回复完成回执用于新消息。系统追加上下文也不再塞入回复ID、提案和旧todos。普通问答直接返回，明确修改才调用修订工具；已有合法提案仍由宿主提交并重新核对，不为结束语再请求模型。
 
 Docs MCP tools页面明确ToolRuntime由ToolNode自动注入且对模型隐藏，Reference MCP核对InjectedToolArg及ToolCallRequest，使用安装版原生注入，不新增调度器或身份服务。89项相关离线会话测试通过（22.23秒），覆盖隐藏schema、当前身份注入、旧身份拒绝、普通聊天、局部修订、清空、多费用、中断、重试和预算；其中既有删除空费用用例改为不传reply_id，仍只1次模拟HTTP，R1→R2且剩余字段/原件保留。失败提案零模型重试仍通过。未运行真实模型/OCR或全项目测试；旧任务的Skill快照不自动迁移。
+
+收尾将显式reconcile_task_charges回执也统一为JSON兼容投影，避免同样的Decimal低分反馈触发额外模型轮；另1项原生链路离线验证通过（6.87秒），核对已有矛盾候选仅核对工具+答复共2次模拟HTTP，硬错误、缺口与approval=null保留。该用例显式pin财务Skill，验证工具已披露时的行为，不声称产品所有回合都无须按需加载Skill。

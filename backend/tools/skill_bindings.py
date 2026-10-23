@@ -513,7 +513,7 @@ def tools_for(task_id, capability, allowed_skills=None, *, allowed_tools=None):
     def reconcile_task_charges(update_instructions: list[dict] | None = None) -> dict:
         """自动检索同主体历史并核对费用；明确更新时传update_instructions（target_id或reference_no+charge_item及changes），其余字段继承旧值。"""
         check(task_id, skill='billing-reconciliation')
-        return reconcile_saved(task_id, update_instructions)
+        return json.loads(dumps(reconcile_saved(task_id, update_instructions)))
 
 
     @tool

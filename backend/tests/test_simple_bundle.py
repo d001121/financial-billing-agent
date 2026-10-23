@@ -99,3 +99,42 @@ def test_explicit_staging_invalidates_validation_without_running_financial_check
     result = save.invoke(dict(result=task['extraction'], finalize=False))
     assert result['saved'] and 'verification' not in result
     assert repo.get('task', 'task-1')['validation'] is None
+
+
+def test_reconciliation_of_an_existing_candidate_can_finish_after_its_receipt(host, monkeypatch):
+    repo, _, task = host
+    def arrange(current):
+        current['status'] = 'running'
+        current['charges'][0]['amount'] = 90  # Contradicts the original 100.
+    repo.mutate('task', 'task-1', arrange)
+    calls = []
+    def respond(body):
+        calls.append(body)
+        if len(calls) == 1:
+            return proposed_call('reconcile_task_charges', {}, 'check-existing')
+        assert len(calls) == 2
+        assert body['messages'][-1]['content'].startswith('{'), body['messages'][-1]['content']
+        receipt = json.loads(body['messages'][-1]['content'])
+        assert receipt['verification']['ok'] is False
+        assert receipt['verification']['review_items']
+        return dict(role='assistant', content='原文金额与候选矛盾，保留错误供核对。')
+    async def run():
+        model, http = offline_model(monkeypatch, 'task-1', respond)
+        try:
+            cap = task['capability']
+            backend = StateBackend()
+            common, business = tools_for('task-1', cap)
+            graph = build_supervisor(model, common, backend,
+                base_stack('task-1', 1, cap, backend, business, outcome=True), [])
+            initial = skill_state(cap, repo.get('task', 'task-1'))
+            initial['pinned_skills'].append('billing-reconciliation')
+            return await graph.ainvoke({**initial,
+                'messages': [dict(role='user', content='核对现有候选，不补填字段')]})
+        finally:
+            await http.aclose()
+    result = asyncio.run(run())
+    saved = repo.get('task', 'task-1')
+    assert len(calls) == saved['usage']['model_calls'] == 2
+    assert saved['status'] == 'completed_with_gaps' and saved['approval'] is None
+    assert saved['validation']['ok'] is False and saved['export']
+    assert [m.name for m in result['messages'] if isinstance(m, ToolMessage)] == ['reconcile_task_charges']
