@@ -14,7 +14,7 @@ DispatchPolicy.progress_transaction 读取尚不存在的 candidate_digests/docu
 
 ## 单次真实验证
 
-尚未执行。用户只授权一次新账单生命周期；复用原账单4图片，原账单4不覆盖；所有后续人工干预与修复在新建的同一任务上完成。
+已执行完毕，只有一次新建账单；全部人工干预和恢复均发生在同一任务，详情见后文。
 
 ## 单次在线验证发现的回复缺陷（2026-10-24）
 
@@ -25,3 +25,17 @@ DispatchPolicy.progress_transaction 读取尚不存在的 candidate_digests/docu
 新增4项回归先失败后通过，涵盖目标/清空/原生图提交及拒绝恢复；10项回复相关定向离线检查7.04秒通过，未全量测试。同步既有纯主体测试缺少resolves_pending的旧断言。
 
 框架查证：Docs MCP /oss/python/langchain/middleware/custom 的wrap_model_call、after_agent及jump_to；Reference MCP langchain.agents.middleware.types.AgentMiddleware。当前安装组合不变；现成中间件负责原生跳转，应用只补业务费用ID传递及失败回执处理。
+
+## 最终在线结果（2026-10-24）
+
+- 新建任务：a43744d3-9269-49db-986b-b690715bdf66；原生线程01a1697e-a599-7456-983f-7e20906b01e1。仅此一条新建，未重跑整单。
+- 第一轮候选保存通过；REPAIR_LIMIT在两轮后真实停止并打开原生中断。首次回复因上述缺陷未应用，保留原始失败记录。修复后用新reply_id恢复现有中断、再次提交同一联调文字，1次真实模型请求成功生成revision2。
+- 测试主体明确仅用于联调，取原件收款方；AR来自这次明确测试输入。两笔原件金额5.00 USD与21.90 USD保留。两笔quantity与payment_term为null，未补造模糊数量或PP/CC。人工修改使旧校验失效并重算。
+- 原生状态next=[]、tasks=[]、run_status=success。complete-review返回200，业务status=completed，但review_confirmation.decision=completed_with_gaps、validation.ok=false、approval=null。这是带缺口完成审核，不是财务校验通过或批准。
+- 仍有3项硬问题：2项FIELD_VALUE_UNSUPPORTED（费用名称引用错位）、1项TOTAL_MISMATCH。按联调输入暂缓保留。草稿导出200、2条PENDING_REVIEW；正式导出422，未绕过门禁。
+- 共享计数器合计14次真实模型请求、11次工具派发，活跃106.796秒。首次自动轮12次模型（账单专家3次）、约99.148秒；两次人工回复各1次模型。创建到结束969.261秒，包含中途诊断、离线测试、两次服务启动等待及人工等待，不能当作纯处理性能。
+- 解析/OCR沿用原件缓存；接入回执保留上次解析来源，补读一次也命中远程OCR响应缓存（本次补读耗时约0.115秒，HTTP为0）。没有新的远程OCR HTTP请求，不能把本次写成OCR在线冷调用验证；文本模型使用当前配置qwen3.7-flash，enable_thinking=false。
+- 重载前确认无busy线程，使用控制台Ctrl-C正常停止，再启动官方服务。首次重载前后线程ID/状态一致；误开的一次辅助dev进程自动选择其他端口，已在创建验证账单前停止，未处理业务任务。最终仅2024端口服务，PID22576，GaussDB/Redis健康。
+- 原账单4与本轮最初快照完整比较相同，未覆盖异常记录或修改它的业务数据。全部真实原件、请求、响应、状态、导出与日志只留本机忽略目录backend/tests/reports/bill4-diagnosis/；原件与密钥未入Git。
+
+离线验收分批27项通过（存储/进度17，回复10），未跑全量，未使用第二条真实账单。真实结果证明保存异常、人工修订及结束/导出门禁路径生效；自动提取本身仍有上述证据与合计缺口，不能宣称总体准确率或无人工自动完成已验收。
