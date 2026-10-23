@@ -326,7 +326,7 @@ def test_delete_obsolete_charge_revalidates_and_resolves_its_old_question(host, 
     def respond(body):
         seen.append(body)
         if len(seen) == 1:
-            return proposed_call('record_review_decision', dict(reply_id=reply_id, action='edit',
+            return proposed_call('record_review_decision', dict(action='edit',
                 operations=[dict(op='delete', charge_id='c2')]), 'delete-empty')
         return dict(role='assistant', content='已提出删除第二条。')
     async def exercise():
@@ -378,6 +378,51 @@ def test_old_reply_receipt_cannot_complete_a_new_user_turn(host):
     result = tool.invoke(dict(reply_id='current', action='edit',
         operations=[dict(op='set', charge_id='c1', field='amount', value=65)]))
     assert result['proposed'] is True
+
+
+def test_review_tool_schema_hides_host_identity_and_runtime(host):
+    _, _, task = host
+    schema = ConversationReplies('task-1', 1, task['capability']).record_tool.tool_call_schema.model_json_schema()
+    assert 'action' in schema['properties']
+    assert 'reply_id' not in schema['properties'] and 'runtime' not in schema['properties']
+
+
+@pytest.mark.parametrize('bound_reply', ['current', 'old'])
+def test_native_tool_uses_host_turn_identity_without_model_copying_ids(host, monkeypatch, bound_reply):
+    repo, _, task = host
+    repo.mutate('task', 'task-1', lambda t: t.update(conversation=[
+        dict(id='old', text='旧问题', revision=1, state='completed', proposal=dict(action='answer')),
+        dict(id='current', text='暂缓', revision=1, state='starting', kind='chat', conversational=True)],
+        usage=dict(model_calls=0, tool_calls=0, active_seconds=0,
+                   human_turn=dict(id='turn', reply_id=bound_reply, ceilings={}))))
+    calls = []
+    def respond(body):
+        calls.append(body)
+        schema = next(t['function']['parameters'] for t in body['tools']
+                      if t['function']['name'] == 'record_review_decision')
+        assert 'reply_id' not in schema['properties'] and 'runtime' not in schema['properties']
+        if len(calls) == 1:
+            return proposed_call('record_review_decision', dict(action='defer'), 'defer-current')
+        assert bound_reply == 'old'
+        assert '旧回合' in str(body['messages'])
+        return dict(role='assistant', content='当前回合身份不一致，未应用旧回执。')
+    async def run():
+        model, http = offline_model(monkeypatch, 'task-1', respond)
+        try:
+            mw = ConversationReplies('task-1', 1, task['capability'])
+            graph = create_agent(model, tools=[], middleware=[mw])
+            return await graph.ainvoke({'messages': [dict(role='user', content='暂缓')]},
+                {'configurable': {'task_budget_id': 'turn'}})
+        finally:
+            await http.aclose()
+    asyncio.run(run())
+    saved = repo.get('task', 'task-1')
+    assert saved['revision'] == 1
+    if bound_reply == 'current':
+        assert len(calls) == 1 and saved['conversation'][-1]['proposal']['action'] == 'defer'
+        assert saved['status'] == 'review_deferred'
+    else:
+        assert len(calls) == 2 and not saved['conversation'][-1].get('proposal')
 
 
 def test_native_reply_can_save_first_candidate_when_none_exist(host):

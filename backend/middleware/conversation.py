@@ -7,12 +7,12 @@ only transport provenance and the pending proposal live in this adapter.
 """
 import asyncio
 import re
-from typing import Any, Literal, NotRequired, TypedDict
+from typing import Annotated, Any, Literal, NotRequired, TypedDict
 
 from langchain.agents.middleware import AgentMiddleware, hook_config
 from langchain.messages import AIMessage, SystemMessage, ToolMessage
-from langchain.tools import tool
-from langchain_core.tools import ToolException
+from langchain.tools import ToolRuntime, tool
+from langchain_core.tools import InjectedToolArg, ToolException
 from langgraph.types import interrupt
 
 from backend.extensions.skill_versions import function
@@ -127,10 +127,13 @@ class ConversationReplies(AgentMiddleware):
         self.task_id, self.revision, self.cap = task_id, revision, cap
 
         @tool
-        def record_review_decision(reply_id: str, action: Literal['answer', 'edit', 'confirm', 'defer'],
+        def record_review_decision(action: Literal['answer', 'edit', 'confirm', 'defer'],
                 operations: list[ReviewOperation] | None = None, set_accounting_entity: bool = False,
-                accounting_entity: str | None = None, resolves_pending: bool = False) -> dict:
-            """理解调用方本轮真实回复后记录处理意见。修改用现有charge_id和set/delete/split操作；
+                accounting_entity: str | None = None, resolves_pending: bool = False,
+                reply_id: Annotated[str | None, InjectedToolArg] = None,
+                runtime: ToolRuntime = None) -> dict:
+            """提交当前用户明确要求的修改、确认或暂缓；普通问答直接回答，无需此工具。
+            修改用现有charge_id和set/delete/split操作；
             主体变更须set_accounting_entity=true。confirm只用于明确确认当前结果，修改不是确认。
             仅生成待提交修订，本轮结束时由human-review Skill事务应用、重算和校验。
             resolves_pending仅在本条回复确实解决当前待答问题时为true；无关聊天或改其他字段保持false。
@@ -139,6 +142,19 @@ class ConversationReplies(AgentMiddleware):
             # can be answered idempotently instead of becoming a new model turn.
             task = repository().get('task', task_id)
             reply = active_reply(task)
+            # Transport identity belongs to the host. The explicit argument is
+            # only for historical checkpoint replays and deterministic calls;
+            # it cannot override the reply bound to a native run's grant.
+            budget_id = ((runtime.config or {}).get('configurable') or {}).get('task_budget_id') if runtime else None
+            grant = (task.get('usage') or {}).get('human_turn') or {}
+            if budget_id and grant:
+                if budget_id != grant['id']:
+                    raise ToolException('旧运行不能处理新一轮用户回复，请使用当前会话。')
+                if reply_id is not None and reply_id != grant.get('reply_id'):
+                    raise ToolException('回复编号属于旧回合，不能替换当前运行绑定的回复。')
+                reply_id = grant.get('reply_id')
+            if reply_id is None:
+                reply_id = reply['id'] if reply else None
             historical = reply_by_id(task, reply_id)
             if reply and reply['id'] != reply_id:
                 raise ToolException('回复编号属于旧回合；当前真实待处理回复编号为 ' + reply['id'] +
@@ -386,9 +402,8 @@ class ConversationReplies(AgentMiddleware):
             '不要重复已成功的OCR/读取。'
             '回复不清楚时ask_user追问。用户明确本主体收款或付款时，修订对应费用的creditor/debtor关系，'
             '仅修改posting_type不会替代财务关系校验；不得假定用户未声明的关系。'
-            '修订提案在本轮结束时应用，结果以最终校验为准。\n' + dumps({
-                **{k: reply.get(k) for k in ('id', 'text', 'question', 'revision', 'proposal')},
-                'current_todos': (getattr(request, 'state', {}) or {}).get('todos', [])}) +
+            '修订提案在本轮结束时应用，结果以最终校验为准。\n' + dumps(
+                {k: reply.get(k) for k in ('text', 'question', 'revision')}) +
                 '\n调用方选择的核对范围：' + dumps(task.get('review_request') or {}))]
         available = list(request.tools)
         if reply.get('conversational'):

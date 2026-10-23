@@ -82,3 +82,9 @@
 操作查证：Docs MCP读取custom middleware的after_agent及wrap handler零/一次调用、tools的运行时注入说明；Reference MCP核对TodoListMiddleware(system_prompt, tool_description)、AgentMiddleware、InjectedToolArg、ToolCallRequest.override。安装组合LangChain1.4.6、LangGraph1.2.16、Deep Agents0.7.30不变。官方原生计划、工具循环、Skill加载与结束Hook可直接复用；最小业务适配仅默认保存核对及识别已存在的核验回执。对照本机Codex plan_spec.rs，计划工具本身不承担财务完成判定。提取Skill指令2.2.4/config40去掉例行prepare_export，旧release不改写，历史任务不迁移。
 
 定向离线检查共13项分批通过（最后一项旧规划测试更新过时的非JSON委派契约、缺依据编号与固定100分断言后单独通过）。两个文件只需一次read_materials、一次save和一次答复，模拟HTTP计数3；包含缺主体原生中断、主体已给直接结束、不同单据字段隔离、缺币种保持null及金额矛盾保留硬错误。旧规划/可选委派、未校验写入失效、漏校验反馈和专家暂存仍有覆盖。全部使用隔离仓库与模拟HTTP，无真实模型/OCR、全量测试或线上账单修改；3次是合成控制流结果，不是线上性能或准确率结论。后端尚未重载。
+
+## 回复身份由宿主绑定
+
+record_review_decision的reply_id改为官方InjectedToolArg隐藏参数，ToolRuntime从原生运行config获得预算回合，绑定已保存human_turn.reply_id。模型只提交业务动作及字段，不再抄内部回复ID；旧检查点及确定性调用的显式ID仍可兼容，但不能覆盖当前运行绑定或将旧回复完成回执用于新消息。系统追加上下文也不再塞入回复ID、提案和旧todos。普通问答直接返回，明确修改才调用修订工具；已有合法提案仍由宿主提交并重新核对，不为结束语再请求模型。
+
+Docs MCP tools页面明确ToolRuntime由ToolNode自动注入且对模型隐藏，Reference MCP核对InjectedToolArg及ToolCallRequest，使用安装版原生注入，不新增调度器或身份服务。89项相关离线会话测试通过（22.23秒），覆盖隐藏schema、当前身份注入、旧身份拒绝、普通聊天、局部修订、清空、多费用、中断、重试和预算；其中既有删除空费用用例改为不传reply_id，仍只1次模拟HTTP，R1→R2且剩余字段/原件保留。失败提案零模型重试仍通过。未运行真实模型/OCR或全项目测试；旧任务的Skill快照不自动迁移。
