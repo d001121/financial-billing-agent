@@ -392,6 +392,38 @@ def test_native_reply_can_save_first_candidate_when_none_exist(host):
     assert result == 'first candidate saved' and handler.await_count == 1
 
 
+def test_rejected_direct_export_returns_to_model_instead_of_completing_question(host, monkeypatch):
+    from langchain.tools import tool
+    repo, _, task = host
+    reply_id = str(uuid4())
+    repo.mutate('task', 'task-1', lambda t: t.update(status='completed_with_gaps', conversation=[
+        dict(id=reply_id, revision=1, state='starting', text='是不是有多余费用',
+             kind='conversation_review', conversational=True)]))
+    calls = []
+    @tool(return_direct=True)
+    def prepare_export() -> str:
+        """Export current records."""
+        raise AssertionError('A conversational question must not execute export')
+    def respond(body):
+        calls.append(body)
+        if len(calls) == 1:
+            return proposed_call('prepare_export', {}, 'wrong-export')
+        assert len(calls) == 2
+        assert any(m.get('role') == 'tool' and '只读工具' in str(m.get('content')) for m in body['messages'])
+        return dict(role='assistant', content='应先核对具体费用，不能擅自导出。')
+    async def exercise():
+        model, http = offline_model(monkeypatch, 'task-1', respond)
+        try:
+            middleware = ConversationReplies('task-1', 1, task['capability'])
+            graph = create_agent(model, tools=[prepare_export], middleware=[middleware])
+            return await graph.ainvoke({'messages': [dict(role='user', content='核对费用')]})
+        finally:
+            await http.aclose()
+    result = asyncio.run(exercise())
+    assert len(calls) == 2 and '不能擅自导出' in result['messages'][-1].content
+    assert repo.get('task', 'task-1')['conversation'][-1]['state'] == 'completed'
+
+
 def test_validation_uses_the_same_granted_ceiling_as_dispatch(host):
     from backend.hooks.guards import validate_native_hook
     _, _, task = host

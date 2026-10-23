@@ -490,6 +490,11 @@ class ConversationReplies(AgentMiddleware):
             # node itself, so returning it here recursed to the 512 limit.
             return {'messages': [AIMessage(content='本轮回复未能安全应用：' + reply['decision_error'] + '请补充明确字段后再继续。',
                                            id='reply-error-' + reply['id'])]}
+        last = (state.get('messages') or [None])[-1]
+        if isinstance(last, ToolMessage) and last.status == 'error' and not reply.get('proposal'):
+            # A return_direct tool may have been rejected before execution.
+            # Its error is feedback for the model, never a completed answer.
+            return {'jump_to': 'model'}
         if not reply.get('model_seen'):
             # A historical confidence tool may be return_direct. Native routing
             # gives its free-text response to the model, rather than approving it.
