@@ -25,25 +25,32 @@ class TaskOutcome(AgentMiddleware):
         start = next((i for i in range(len(messages) - 1, -1, -1)
                       if isinstance(messages[i], HumanMessage)), 0)
         for message in reversed(messages[start:]):
-            # Candidate writes can change artifacts within the same revision.
-            if isinstance(message, ToolMessage) and message.status != 'error' and message.name in (
-                    'save_document_extraction', 'reconcile_task_charges', 'link_task_evidence'):
-                break
-            if not isinstance(message, ToolMessage) or message.name != 'prepare_export' or message.status == 'error':
+            if not isinstance(message, ToolMessage) or message.status == 'error':
+                continue
+            write = message.name in ('save_document_extraction', 'reconcile_task_charges', 'link_task_evidence')
+            if not write and message.name != 'prepare_export':
                 continue
             result = message.artifact
             if not isinstance(result, dict):
                 try:
                     result = json.loads(message.content)
                 except (ValueError, TypeError):
+                    if write:
+                        break
                     continue
             if not isinstance(result, dict):
+                if write:
+                    break
                 continue
             if result.get('revision') == task['revision'] and result.get('verification'):
                 return
+            # A later write without a check invalidates an earlier receipt,
+            # including writes within the same business revision.
+            if write:
+                break
         return {'jump_to': 'model', 'messages': [SystemMessage(content=
             '当前版本最终核验已返回主控，请根据真实回执决定是否仍需补读、修正、委派或如实结束。'
-            '不要重复已完成的检查；更新本轮计划并在会话中说明结果、置信度与缺口。\n' + dumps(dict(
+            '不要重复已完成的检查；直接说明结果、置信度与缺口，无需更新计划。\n' + dumps(dict(
                 status=task['status'], verification=verification_summary(task.get('validation') or {}),
                 feedback=feedback_context(task) if task.get('feedback') else None,
                 issues=(task.get('validation') or {}).get('issues', [])[:12])))]}

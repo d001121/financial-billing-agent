@@ -1,11 +1,11 @@
-version: 39
+version: 40
 skills:
 - name: document-intake
   enabled: true
   version: 1.8.0
 - name: document-extraction
   enabled: true
-  version: 2.2.3
+  version: 2.2.4
 - name: evidence-linking
   enabled: true
   version: 2.1.4

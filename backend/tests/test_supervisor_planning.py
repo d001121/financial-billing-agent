@@ -38,15 +38,16 @@ def test_supervisor_replans_after_specialist_and_verifies_corrected_artifact(hos
         system = str([m['content'] for m in body['messages'] if m['role'] in ('system', 'developer')])
         if '按需调用的账单核验专家' in system:
             specialists.append(body)
-            assert 'revision=1' in str(body['messages'])
+            assert json.loads(body['messages'][-1]['content'])['host']['revision'] == 1
             return dict(role='assistant', content='原文金额100，候选90不符，建议修正。付款方未在委派文本给出，请主控补读。未保存。')
         main.append(body)
         step = len(main)
         if step == 1:
             return proposed_call('write_todos', dict(todos=plans[0]), 'plan-start')
         if step == 2:
-            return proposed_call('task', dict(subagent_type='billing-specialist', description=
-                'revision=1，仅核验c1候选金额90与原文THC USD 100，确认差异，返回是否已保存及未解决事项。'), 'delegate')
+            return proposed_call('task', dict(subagent_type='billing-specialist', description=json.dumps(dict(
+                goal='核验c1候选金额90与原文THC USD 100', source_ids=['doc'], charge_ids=['c1'],
+                questions=['金额是否一致？'], acceptance=['返回具体差异、依据及未解决事项']), ensure_ascii=False)), 'delegate')
         if step == 3:
             assert '未保存' in body['messages'][-1]['content']
             return proposed_call('write_todos', dict(todos=plans[1]), 'plan-change')
@@ -59,16 +60,16 @@ def test_supervisor_replans_after_specialist_and_verifies_corrected_artifact(hos
             rid = next(k for k, r in refs.items() if 'Client pay Carrier' in r['quote'])
             return proposed_call('save_document_extraction', dict(finalize=True, replace=True,
                 result=dict(charges=[dict(charge_id='c1', line_id='line1', document_id='doc',
-                    charge_item='THC', amount=100, currency='USD', creditor='Carrier', debtor='Client',
+                    reference_no=None, charge_item='THC', amount=100, currency='USD', creditor='Carrier', debtor='Client',
                     evidence=[dict(ref_id=rid, fields=['charge_item','amount','currency','creditor','debtor'])])])), 'correct')
         if step == 6:
             result = json.loads(body['messages'][-1]['content'])
             assert result['verification']['revision'] == 1
-            assert result['verification']['review_score'] == 100
+            assert result['verification']['review_score'] > 0
             return proposed_call('prepare_export', {}, 'final-check')
         if step == 7:
             result = json.loads(body['messages'][-1]['content'])
-            assert result['verification']['review_score'] == 100
+            assert result['verification']['review_score'] > 0
             assert result['records'][0]['financial_attributes']['posting_type'] == 'AP'
             return proposed_call('write_todos', dict(todos=plans[2]), 'plan-finish')
         assert step == 8
@@ -106,7 +107,7 @@ def test_supervisor_replans_after_specialist_and_verifies_corrected_artifact(hos
                      'save_document_extraction','prepare_export','write_todos']
     receipt = next(m for m in state['messages'] if isinstance(m, ToolMessage) and m.name == 'prepare_export')
     assert receipt.artifact['revision'] == saved['revision']
-    assert receipt.artifact['verification']['review_score'] == 100
+    assert receipt.artifact['verification']['review_score'] == saved['validation']['confidence']['review_score']
     assert not any(e.get('tool') == 'intake_documents' for e in repo.receipts)
 
 

@@ -131,10 +131,11 @@ def test_feedback_is_bounded_and_deduplicated(host):
     assert result['more_issues'] == 28 and len(json.dumps(result)) < 2000
 
 
-def test_native_short_extraction_opens_entity_review(host, monkeypatch):
+@pytest.mark.parametrize('entity', [None, 'Client'])
+def test_native_short_extraction_opens_entity_review(host, monkeypatch, entity):
     repo, _, task = host
     def start(t):
-        t.update(status='running', accounting_entity=None, sources=materials(), chunks=[],
+        t.update(status='running', accounting_entity=entity, sources=materials(), chunks=[],
                  charges=[], records=[], coverage=[], extraction=None)
     repo.mutate('task', task['id'], start)
     module = extraction(task)
@@ -147,14 +148,14 @@ def test_native_short_extraction_opens_entity_review(host, monkeypatch):
             return proposed_call('read_materials', {}, 'read')
         if len(calls) == 2:
             assert 'H/C' in body['messages'][-1]['content'] and 'BK-987' in body['messages'][-1]['content']
-            return proposed_call('save_document_extraction', dict(finalize=True, result=dict(charges=[dict(
+            return proposed_call('save_document_extraction', dict(result=dict(charges=[dict(
                 line_id='fee1', charge_item='H/C', raw_charge_item='H/C', amount=50, raw_amount='50',
                 raw_currency='$', creditor='Carrier', debtor='Client',
                 evidence=[dict(ref_id=rid, fields=['charge_item', 'amount', 'creditor', 'debtor'])])])), 'save')
         assert len(body['messages'][-1]['content']) < 6000
-        if len(calls) == 3:
-            return proposed_call('prepare_export', {}, 'finish')
-        assert len(calls) == 4
+        assert len(calls) == 3
+        receipt = json.loads(body['messages'][-1]['content'])
+        assert receipt['verification']['revision'] == 1
         return dict(role='assistant', content='已提取H/C金额50；币种和记账主体未知，结果可查看修改。')
     async def run():
         model, client = offline_model(monkeypatch, task['id'], respond)
@@ -171,15 +172,22 @@ def test_native_short_extraction_opens_entity_review(host, monkeypatch):
     state = asyncio.run(run())
     saved = repo.get('task', task['id'])
     interrupt = (state.get('__interrupt__') or [None])[0]
-    assert interrupt and interrupt.value.get('kind') == 'conversation_review'
-    assert interrupt.value.get('choices') == ['Carrier', 'Client']
-    assert saved['status'] == 'awaiting_input'
+    if entity is None:
+        assert interrupt and interrupt.value.get('kind') == 'conversation_review'
+        assert interrupt.value.get('choices') == ['Carrier', 'Client']
+        assert saved['status'] == 'awaiting_input'
+    else:
+        assert interrupt is None
+        assert saved['status'] == 'completed_with_gaps'
+        assert saved['export'] is not None
     assert saved['records'][0]['charge_details']['amount'] == 50
     assert saved['records'][0]['charge_details']['currency'] is None
-    assert saved['records'][0]['financial_attributes']['posting_type'] is None
-    assert saved['records'][0]['financial_attributes']['accounting_entity'] is None
+    assert saved['records'][0]['financial_attributes']['posting_type'] == (None if entity is None else 'AP')
+    assert saved['records'][0]['financial_attributes']['accounting_entity'] == entity
     assert saved['records'][0]['operation'] == 'PENDING_REVIEW'
-    assert len(calls) == 4 and saved['usage']['model_calls'] == 4
+    assert len(calls) == 3 and saved['usage']['model_calls'] == 3
+    assert [m.name for m in state['messages'] if isinstance(m, ToolMessage)] == [
+        'read_materials', 'save_document_extraction']
     assert saved['approval'] is None
 
 

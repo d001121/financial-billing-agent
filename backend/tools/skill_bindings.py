@@ -2,6 +2,7 @@
 import asyncio
 from copy import deepcopy
 from hashlib import sha256
+import json
 import os
 from pathlib import Path
 from typing import Literal
@@ -412,8 +413,10 @@ def tools_for(task_id, capability, allowed_skills=None, *, allowed_tools=None):
 
     @tool
     def save_document_extraction(result: extraction_type, replace: bool = False,
-                                 finalize: bool = False) -> dict:
-        """保存结构化提取候选。默认按charge_id与chunk_id增量保存；修复时明确replace。"""
+                                 finalize: bool = (allowed_skills is None and
+                                     cap['config']['runtime'].get('agent_style') == 'codex')) -> dict:
+        """保存候选；主控默认完成代码核对并返回verification，可直接答复。
+        分批暂存用finalize=false；按charge_id增量保存，修复时明确replace。"""
         task = check(task_id, skill='document-extraction')
         check(task_id, skill='human-review', policy_only=True)
         if finalize:
@@ -484,12 +487,15 @@ def tools_for(task_id, capability, allowed_skills=None, *, allowed_tools=None):
             response['validation'] = (extraction_module.compact_feedback(checked['validation'])
                 if getattr(extraction_module, 'BUNDLE_READING', False) else checked['validation'])
             response['record_count'] = checked['record_count']
-            response['next'] = ('仅修复有依据的误读；否则prepare_export保存结果和缺口并结束，无需重复link/validate/reconcile。'
+            response['next'] = ('阅读verification和issues，仅修复有依据的误读；否则直接答复，宿主保存结果和缺口。无需prepare_export或重复link/validate/reconcile。'
                 if getattr(extraction_module, 'BUNDLE_READING', False) else
                 '仅定向修复真实错误；否则prepare_export结束或产生真实低置信度中断，无需再次link/validate/reconcile。')
         if getattr(extraction_module, 'BUNDLE_READING', False):
             response['issues'] = extraction_module.compact_feedback(response)['issues']
-        return response
+        # Decimal values in low-score feedback otherwise make native tools
+        # fall back to Python repr, hiding the structured verification receipt.
+        # Persisted financial values retain Decimal; only this projection is JSON.
+        return json.loads(dumps(response))
 
     save_document_extraction.handle_tool_error = True
 

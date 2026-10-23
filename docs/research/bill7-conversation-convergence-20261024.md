@@ -74,3 +74,11 @@
 本机完整回执位于忽略目录 `backend/tests/reports/bill7-diagnosis/`：`task-before/state-before`、各阶段请求/响应、停止与最终快照、`verification.json`、草稿和正式导出响应。原始业务材料及完整模型对话没有上传 Git。
 
 边界：真实验证覆盖本账单的自主判断→原生人工确认→失败停止→同请求重试→revision提交→导出门禁，未做全量、批量、其他格式、跨进程硬崩溃或数据库高并发验证，也未宣称总体准确率提高。旧原生todos仍保留初次提取计划（in_progress/pending），但不代表存在运行中的节点；本次未改写历史计划。旧提取issues还带有一条 ENTITY_UNRESOLVED 的info，实际主体已确认，该提示不是新的主体缺失事实；未静默迁移历史Skill版本或将其包装成全部通过。
+
+## 2026-10-24 后续精简：多文件读取与核对
+
+用户指出正常业务只需逐文件提取再对照。本阶段删除主控重复的中英文流程说明，简单提取、多文件核对及局部修改不再要求写todos或委派专家。主控save_document_extraction默认finalize=true，已有证据/金额/关联/历史/评分函数一次返回核验；分批暂存可显式false，专家默认仍只暂存。保存及reconcile回执可满足主控已见核验的结束检查，无需为prepare_export再跑一轮；之后写入仍使旧回执失效。真正漏做核验时仍将实际检查结果反馈主控一次。低分反馈中的Decimal原生序列化曾退化为Python repr，现仅将保存回执转为JSON兼容投影，不改变库内Decimal或原始证据。
+
+操作查证：Docs MCP读取custom middleware的after_agent及wrap handler零/一次调用、tools的运行时注入说明；Reference MCP核对TodoListMiddleware(system_prompt, tool_description)、AgentMiddleware、InjectedToolArg、ToolCallRequest.override。安装组合LangChain1.4.6、LangGraph1.2.16、Deep Agents0.7.30不变。官方原生计划、工具循环、Skill加载与结束Hook可直接复用；最小业务适配仅默认保存核对及识别已存在的核验回执。对照本机Codex plan_spec.rs，计划工具本身不承担财务完成判定。提取Skill指令2.2.4/config40去掉例行prepare_export，旧release不改写，历史任务不迁移。
+
+定向离线检查共13项分批通过（最后一项旧规划测试更新过时的非JSON委派契约、缺依据编号与固定100分断言后单独通过）。两个文件只需一次read_materials、一次save和一次答复，模拟HTTP计数3；包含缺主体原生中断、主体已给直接结束、不同单据字段隔离、缺币种保持null及金额矛盾保留硬错误。旧规划/可选委派、未校验写入失效、漏校验反馈和专家暂存仍有覆盖。全部使用隔离仓库与模拟HTTP，无真实模型/OCR、全量测试或线上账单修改；3次是合成控制流结果，不是线上性能或准确率结论。后端尚未重载。

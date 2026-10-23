@@ -97,6 +97,7 @@ def reconcile_saved(task_id, update_instructions=None):
     save_fields_fast(task_id, task['revision'], **fields)
     validation = validate_and_store(task_id, task=saved)
     return dict(record_count=len(fields['records']), revision=task['revision'], validation=validation,
+                verification=verification_summary(validation),
                 history_lookup=payload.get('history_lookup'),
                 artifact=f'/api/tasks/{task_id}/artifacts')
 
