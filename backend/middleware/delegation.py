@@ -58,7 +58,8 @@ def prepare_delegation(task, args, call_id, scope):
         owned = {charge.get('source_id'), *[r.get('source_id') for r in charge.get('source_links', [])]}
         if not owned.intersection(contract.source_ids):
             raise PolicyDenied('费用与委派材料范围不一致，请包含该费用的真实来源')
-    limits = task['capability']['config']['runtime']
+    from backend.harness.stopping import effective_limits
+    limits = effective_limits(task)
     run = (task.get('usage') or {}).get('run_budget') or {}
     remaining = min(limits.get('expert_model_calls', 4) - run.get('experts', {}).get(role, 0),
         limits['model_calls'] - task.get('usage', {}).get('model_calls', 0) - limits.get('supervisor_reserve', 2),

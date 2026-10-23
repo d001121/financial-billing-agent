@@ -32,8 +32,8 @@ from .reply_decision import ReplyDecisionMiddleware
 
 
 def base_stack(task_id, revision, cap, backend, business, names=None,
-               mcp_tools=None, provenance=None, outcome=False, *, scope=None, allowed_tools=None):
-    limits = cap['config']['runtime']
+               mcp_tools=None, provenance=None, outcome=False, *, scope=None, allowed_tools=None, call_limits=None):
+    limits = call_limits or cap['config']['runtime']
     extensions, owners = configured_tools(cap, names)
     if allowed_tools is not None:
         extensions = [t for t in extensions if t.name in allowed_tools]

@@ -16,6 +16,7 @@ from backend.middleware.assembly import base_stack
 from backend.middleware.handoff import ExpertHandoff
 from backend.tools.skill_bindings import tools_for
 from backend.harness.dispatch import check
+from backend.harness.stopping import effective_limits
 
 from .billing.agent import build_billing_agent
 from .document.agent import build_document_agent
@@ -30,7 +31,7 @@ async def make_graph(config: RunnableConfig, runtime: ServerRuntime):
         # The factory runs on every state/stream request; loading the whole
         # task payload (sources, OCR text, messages) took ~1s per build.
         if hasattr(repo, 'get_fields'):
-            task = await asyncio.to_thread(repo.get_fields, 'task', task_id, ['capability'])
+            task = await asyncio.to_thread(repo.get_fields, 'task', task_id, ['capability', 'usage'])
         else:
             task = await asyncio.to_thread(repo.get, 'task', task_id)
     else:
@@ -39,6 +40,7 @@ async def make_graph(config: RunnableConfig, runtime: ServerRuntime):
     if task_id and expected is not None:
         await asyncio.to_thread(check, task_id, revision=expected, policy_only=True)
     cap = task['capability'] if task else await asyncio.to_thread(snapshot)
+    call_limits = effective_limits(task) if task else cap['config']['runtime']
     revision = task['revision'] if task else 1
     scope = dict(id=config.get('configurable', {}).get('task_budget_id') or str(uuid4()),
                  revision=revision, role='supervisor')
@@ -61,7 +63,7 @@ async def make_graph(config: RunnableConfig, runtime: ServerRuntime):
                 middleware = base_stack(
                     task_id, revision, cap, child_backend, child_business,
                     spec.get('skills'), tools, provenance,
-                    scope=child_scope, allowed_tools=allowed_tools,
+                    scope=child_scope, allowed_tools=allowed_tools, call_limits=call_limits,
                 )
                 if spec.get('delegation_contract'):
                     middleware.append(ExpertHandoff(task_id, revision, cap, child_scope))
@@ -83,7 +85,7 @@ async def make_graph(config: RunnableConfig, runtime: ServerRuntime):
             stack = base_stack(
                 task_id, revision, cap, backend, business, None,
                 tools, provenance, outcome=True,
-                scope=scope,
+                scope=scope, call_limits=call_limits,
             )
             yield build_supervisor(model, common, backend, stack, subagents)
     finally:

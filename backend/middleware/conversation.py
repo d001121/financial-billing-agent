@@ -528,7 +528,8 @@ class ConversationReplies(AgentMiddleware):
                                      if issue.get('field') == 'posting_type' and issue.get('message')))
             if gaps:
                 note += 'AR/AP尚未确定：' + '；'.join(gaps) + '。请说明当前主体在这笔费用中是收款方还是付款方，或补充双方关系。'
-            if (reply.get('conversational') and reply.get('interrupt_id')
+            if (reply.get('conversational') and (reply.get('interrupt_id')
+                    or (task.get('review_request') or {}).get('state') == 'pending')
                     and not proposal.get('resolves_pending')):
                 await self.keep_question(reply, task['revision'])
             if completion_question(task):

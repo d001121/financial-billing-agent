@@ -2,7 +2,7 @@
 import time
 from backend.infrastructure.repository import repository
 from .dispatch import check, PolicyDenied
-from .stopping import RunBudgetStop, active_stop, run_budget_reason
+from .stopping import RunBudgetStop, active_stop, run_budget_reason, effective_limits
 
 
 def consume(task_id, kind, *, scope=None):
@@ -14,7 +14,7 @@ def consume(task_id, kind, *, scope=None):
             raise PolicyDenied('任务暂停或取消，未派发调用')
         usage = task.get('usage') or {}
         task['usage'] = usage
-        limits = task['capability']['config']['runtime']
+        limits = effective_limits(task)
         if scope and scope['revision'] != task['revision']:
             raise RunBudgetStop('任务revision已变化，停止旧运行')
         stop = active_stop(task, scope)

@@ -12,6 +12,16 @@ class RunBudgetStop(PolicyDenied):
     pass
 
 
+def effective_limits(task):
+    """Cumulative meters stay intact; an explicit human turn has its own ceiling."""
+    limits = dict(task['capability']['config']['runtime'])
+    grant = (task.get('usage') or {}).get('human_turn') or {}
+    limits.update(grant.get('ceilings') or {})
+    if grant:
+        limits['run_model_calls'] = min(limits.get('run_model_calls', 16), limits['turn_model_calls'])
+    return limits
+
+
 def active_stop(task, scope=None):
     stop = task.get('automatic_stop') or {}
     if stop.get('revision') != task.get('revision'):
@@ -33,8 +43,11 @@ def run_budget_reason(task, scope):
     if scope['revision'] != task['revision']:
         return '任务revision已变化，停止旧运行'
     usage = task.get('usage') or {}
-    limits = task['capability']['config']['runtime']
+    limits = effective_limits(task)
     run = usage.get('run_budget') or {}
+    grant = usage.get('human_turn') or {}
+    if grant and grant['id'] != scope['id']:
+        return '旧运行不能使用新一轮人工回复预算'
     if run.get('id') != scope['id']:
         run = {}
     limit = limits.get('run_model_calls', limits['model_calls'] - limits['turn_model_calls'])

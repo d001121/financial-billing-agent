@@ -56,7 +56,7 @@ def test_chat_uses_same_thread_and_replay_does_not_dispatch(host, monkeypatch, s
     assert client.post('/api/tasks/task-1/reply', json={**request, 'text': 'different'}).status_code == 409
 
 
-@pytest.mark.parametrize('case', ['stale', 'paused', 'budget', 'running', 'native_pending', 'review_pending', 'active_reply'])
+@pytest.mark.parametrize('case', ['stale', 'paused', 'running', 'native_pending', 'review_pending', 'active_reply'])
 def test_blocked_chat_never_dispatches_or_changes_bill(host, monkeypatch, case):
     repo, _, task = host
     sdk, post = chat_server(monkeypatch, repo)
@@ -219,6 +219,106 @@ def test_answer_receipt_does_not_block_followup_decision(host):
     result = asyncio.run(middleware.awrap_tool_call(request_for('ask_user'), handler))
     assert result == 'native followup' and handler.await_count == 1
     assert not repo.get('task', 'task-1')['conversation'][0].get('proposal')
+
+
+def test_explicit_reply_gets_bounded_allowance_without_resetting_usage(host, monkeypatch):
+    from backend.harness.budget import consume
+    from backend.harness.dispatch import PolicyDenied
+    repo, _, task = host
+    _, post = chat_server(monkeypatch, repo)
+    limits = task['capability']['config']['runtime']
+    repo.mutate('task', 'task-1', lambda t: t['usage'].update(
+        model_calls=limits['model_calls'], tool_calls=limits['tool_calls'], active_seconds=0))
+    result = TestClient(app).post('/api/tasks/task-1/reply', json=chat_request())
+    assert result.status_code == 200, result.text
+    current = repo.get('task', 'task-1')
+    assert current['usage']['model_calls'] == limits['model_calls']
+    assert current['usage']['tool_calls'] == limits['tool_calls']
+    scope = dict(id=current['dispatch_budget_id'], revision=1, role='supervisor')
+    for _ in range(limits['turn_model_calls']):
+        consume('task-1', 'model_calls', scope=scope)
+    with pytest.raises(PolicyDenied):
+        consume('task-1', 'model_calls', scope=scope)
+    assert repo.get('task', 'task-1')['usage']['model_calls'] == limits['model_calls'] + limits['turn_model_calls']
+    assert post.await_count == 1
+
+
+@pytest.mark.parametrize('has_next', [False, True])
+def test_failed_native_reply_retries_from_actual_checkpoint(host, monkeypatch, has_next):
+    repo, _, _ = host
+    sdk, post = chat_server(monkeypatch, repo)
+    request = chat_request() | dict(interrupt_id='consumed-interrupt')
+    repo.mutate('task', 'task-1', lambda t: t.update(conversation=[dict(
+        id=request['reply_id'], text=request['text'], interrupt_id='consumed-interrupt',
+        question='旧待办', revision=1, kind='conversation_review', conversational=True,
+        state='failed', decision_error='failed model request', turn_model_calls=6)]))
+    sdk.threads.get_state.return_value['next'] = ['model'] if has_next else []
+    post.return_value = {'result': {'run_id': 'retry'}} if has_next else {'run_id': 'retry'}
+    result = TestClient(app).post('/api/tasks/task-1/reply', json=request)
+    assert result.status_code == 200, result.text
+    sent = post.call_args.kwargs['json']
+    if has_next:
+        assert 'input' not in sent['params']  # resume failed node, no fake interrupt answer
+    else:
+        assert sent['input']['messages'][0]['content'].startswith(request['text'])
+    row = repo.get('task', 'task-1')['conversation'][-1]
+    assert row['state'] == 'starting' and not row.get('decision_error')
+    assert row['attempts'][-1]['decision_error'] == 'failed model request'
+
+
+def test_continue_on_ended_graph_starts_input_instead_of_noop_resume(host, monkeypatch):
+    repo, _, _ = host
+    sdk, post = chat_server(monkeypatch, repo)
+    monkeypatch.setattr('backend.api.routes.tasks.sdk', lambda: sdk)
+    result = TestClient(app).post('/api/tasks/task-1/control', json=dict(action='resume'))
+    assert result.status_code == 200, result.text
+    assert post.call_args.args == ('/threads/same-thread/runs',)
+    sent = post.call_args.kwargs['json']
+    assert sent['input']['messages'][0]['content']
+
+
+def test_delete_obsolete_charge_revalidates_and_resolves_its_old_question(host, monkeypatch):
+    from backend.tools.review import settle_saved
+    from backend.tools.artifacts import reconcile_saved
+    from backend.hooks.completion import completion_question
+    repo, _, task = host
+    def arrange(t):
+        empty = deepcopy(t['charges'][0])
+        empty.update(charge_id='c2', line_id='empty', charge_item=None, amount=None,
+                     creditor=None, debtor=None, evidence=[])
+        t['charges'].append(empty)
+    repo.mutate('task', 'task-1', arrange)
+    reconcile_saved('task-1')
+    settled = settle_saved('task-1')
+    review = dict(completion_question(settled), id='old-posting', revision=1, state='pending', blocking=False)
+    reply_id = str(uuid4())
+    repo.mutate('task', 'task-1', lambda t: t.update(review_request=review, conversation=[dict(
+        id=reply_id, text='删除没有费用的第二条c2，保留第一条', kind='chat', conversational=True,
+        revision=1, state='starting', model_seen=False, question='', interrupt_id='')]))
+    seen = []
+    def respond(body):
+        seen.append(body)
+        if len(seen) == 1:
+            return proposed_call('record_review_decision', dict(reply_id=reply_id, action='edit',
+                operations=[dict(op='delete', charge_id='c2')]), 'delete-empty')
+        return dict(role='assistant', content='已提出删除第二条。')
+    async def exercise():
+        model, http = offline_model(monkeypatch, 'task-1', respond)
+        try:
+            mw = ConversationReplies('task-1', 1, task['capability'])
+            graph = create_agent(model, tools=[], middleware=[TaskOutcome('task-1', 1), mw,
+                ReplyDecisionMiddleware('task-1', 1, task['capability'], mw.record_tool)])
+            return await graph.ainvoke({'messages': [dict(role='user',
+                id='chat-user-' + reply_id, content='删除c2')]})
+        finally:
+            await http.aclose()
+    result = asyncio.run(exercise())
+    saved = repo.get('task', 'task-1')
+    assert not result.get('__interrupt__') and len(seen) == 2
+    assert saved['revision'] == 2 and [r['charge_id'] for r in saved['records']] == ['c1']
+    assert [r['charge_id'] for r in saved['charges']] == ['c1']
+    assert saved['review_request']['state'] == 'resolved'
+    assert saved['accounting_entity'] == task['accounting_entity']
 
 
 def test_chat_cannot_force_extraction_or_export_tool(host):

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Request
 
 from backend.extensions.skill_versions import skill_module
 from backend.harness.dispatch import check
+from backend.hooks.completion import completion_question
 from backend.infrastructure.repository import Conflict, loads, now, repository
 from ..responses import response
 from ..task_runtime import require_idle, sdk, start_run
@@ -22,10 +23,6 @@ async def request_review_conversation(task_id: str, request: Request):
         raise Conflict('账单已更新，请刷新后重新选择')
     await require_idle(task)
     await asyncio.to_thread(check, task_id, skill='human-review', policy_only=True)
-    limits = task['capability']['config']['runtime']
-    if any(task.get('usage', {}).get(k, 0) >= limits[k]
-           for k in ('model_calls', 'tool_calls', 'active_seconds')):
-        raise Conflict('当前任务预算已用尽，无法启动新的会话核对')
     state = await sdk().threads.get_state(task['thread_id'], subgraphs=True)
     if any(t.get('interrupts') for t in state.get('tasks', [])):
         return response(task)  # Focus the existing question, don't create another.
@@ -87,7 +84,8 @@ async def reply_to_agent(task_id: str, request: Request):
         raise KeyError('账单已从工作台删除')
     previous = next((r for r in task.get('conversation', []) if r['id'] == reply_id), None)
     if previous:
-        if previous['text'] != text.strip() or previous['interrupt_id'] != (body.get('interrupt_id') or ''):
+        if (previous['text'] != text.strip() or previous.get('submitted_interrupt_id', previous['interrupt_id'])
+                != (body.get('interrupt_id') or '')):
             raise Conflict('同一回复编号不能用于不同内容')
         if previous['state'] != 'failed':
             return response(task)  # Reload/double click never replays an accepted reply.
@@ -95,17 +93,36 @@ async def reply_to_agent(task_id: str, request: Request):
         raise Conflict('账单版本已变化，请保留输入并刷新后回复当前问题')
     await require_idle(task)
     await asyncio.to_thread(check, task_id, skill='human-review', policy_only=True)
-    limits = task['capability']['config']['runtime']
-    if any(task.get('usage', {}).get(k, 0) >= limits[k]
-           for k in ('model_calls', 'tool_calls', 'active_seconds')):
-        raise Conflict('当前任务预算已用尽，回复尚未提交')
     state = await sdk().threads.get_state(task['thread_id'], subgraphs=True)
     pending = [i for t in state.get('tasks', []) for i in t.get('interrupts', [])]
-    if not body.get('interrupt_id'):
+    retrying = bool(previous and previous['state'] == 'failed' and not pending)
+    attempts = [*(previous or {}).get('attempts', []), *([{
+        k: previous.get(k) for k in ('state', 'decision_error', 'turn_model_calls', 'completed_at')
+    }] if retrying else [])]
+    if retrying and state.get('next'):
+        def retry_checkpoint(current):
+            item = next(r for r in current['conversation'] if r['id'] == reply_id)
+            for key in ('decision_error', 'last_error', 'retry_count', 'completed_at'):
+                item.pop(key, None)
+            item.update(state='starting', model_seen=False, turn_model_calls=0, attempts=attempts)
+        task = await asyncio.to_thread(repository().mutate, 'task', task_id, retry_checkpoint,
+                                       expected_revision=task['revision'])
+        try:
+            return response(await start_run(task, human_reply=True))
+        except Exception:
+            def failed_retry(current):
+                for item in current['conversation']:
+                    if item['id'] == reply_id:
+                        item['state'] = 'failed'
+            await asyncio.to_thread(repository().mutate, 'task', task_id, failed_retry,
+                                    expected_revision=task['revision'])
+            raise
+    if not body.get('interrupt_id') or retrying:
         review = task.get('review_request') or {}
-        if pending or state.get('next') or (review.get('state') == 'pending' and review.get('blocking') is not False):
+        if pending or state.get('next') or (not retrying and review.get('state') == 'pending' and review.get('blocking') is not False):
             raise Conflict('有待处理的问题或尚未结束的步骤，请刷新会话后回复当前待办')
         reply = dict(id=reply_id, text=text.strip(), question='', interrupt_id='', kind='chat',
+                     submitted_interrupt_id=body.get('interrupt_id') or '', attempts=attempts,
                      conversational=True, revision=task['revision'], state='starting',
                      model_seen=False, at=now())
         def reserve_chat(current):
@@ -116,7 +133,7 @@ async def reply_to_agent(task_id: str, request: Request):
         task = await asyncio.to_thread(repository().mutate, 'task', task_id, reserve_chat,
                                        expected_revision=task['revision'])
         try:
-            task = await start_run(task, message=text.strip(), message_id='chat-user-' + reply_id)
+            task = await start_run(task, message=text.strip(), message_id='chat-user-' + reply_id, human_reply=True)
         except Exception:
             def failed_chat(current):
                 for item in current.get('conversation', []):
@@ -147,8 +164,13 @@ async def reply_to_agent(task_id: str, request: Request):
     messages = state.get('values', {}).get('messages', [])
     anchor = ('review-question-' + payload['request_id'] if payload.get('kind') == 'conversation_review'
               else messages[-1].get('id') if messages and isinstance(messages[-1], dict) else None)
+    review_context = task.get('review_request') or {}
+    if review_context.get('source') == 'completion' and not review_context.get('field'):
+        current_question = completion_question(task)
+        if current_question and current_question.get('question') == review_context.get('question'):
+            review_context = current_question | review_context
     reply = dict(id=reply_id, text=text.strip(), question=question, interrupt_id=entry['id'],
-        review_context=task.get('review_request') or {},
+        review_context=review_context,
         conversational=body.get('conversational') is True,
         question_choices=payload.get('choices') or payload.get('args', {}).get('choices') or [],
         kind=payload.get('kind') or payload.get('name'),
@@ -175,7 +197,7 @@ async def reply_to_agent(task_id: str, request: Request):
     task = await asyncio.to_thread(repository().mutate, 'task', task_id, reserve,
                                    expected_revision=task['revision'])
     try:
-        task = await start_run(task, command={'resume': {entry['id']: answer}})
+        task = await start_run(task, command={'resume': {entry['id']: answer}}, human_reply=True)
     except Exception:
         def failed(current):
             for item in current.get('conversation', []):

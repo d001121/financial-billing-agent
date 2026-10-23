@@ -52,19 +52,29 @@ def _message_projection(messages):
     return result
 
 
-async def start_run(task, *, message=None, command=None, message_id=None):
+async def start_run(task, *, message=None, command=None, message_id=None, human_reply=False):
     if task.get('deleted_at'):
         raise Conflict('账单已从工作台删除，不能继续运行')
     # Native run.start enables all v2 channels and resumable tool events.
     # API 0.16.2 doesn't expose durability on commands; LangGraph 1.2.16
     # reads its inherited configurable default when durability is None.
     # This one internal compatibility key must be rechecked on upgrades.
-    budget_id = str(uuid4())
+    prior_grant = (task.get('usage') or {}).get('human_turn') or {}
+    budget_id = prior_grant.get('id') if prior_grant and not human_reply else str(uuid4())
     # Only an authorized new run/reply starts a fresh run allowance. Cumulative
     # task counters are never reset; subagents inherit this same native config.
     def new_turn(current):
         current.pop('automatic_stop', None)
         current['dispatch_budget_id'] = budget_id
+        if human_reply:
+            usage = current.setdefault('usage', {})
+            limits = current['capability']['config']['runtime']
+            allowance = dict(model_calls=limits['turn_model_calls'],
+                tool_calls=min(limits['tool_calls'], limits.get('run_model_calls', 16)),
+                active_seconds=min(limits['active_seconds'], limits['model_timeout'] * limits['turn_model_calls']))
+            usage['human_turn'] = dict(id=budget_id,
+                reply_id=(current.get('conversation') or [{}])[-1].get('id'),
+                allowance=allowance, ceilings={k: usage.get(k, 0) + v for k, v in allowance.items()})
     await asyncio.to_thread(repository().mutate, 'task', task['id'], new_turn,
                             expected_revision=task['revision'])
     async def submit(path, payload, *, commands=False):
@@ -80,9 +90,14 @@ async def start_run(task, *, message=None, command=None, message_id=None):
                 # a fast accepted run's new stop or a concurrent human revision.
                 if (current['revision'] == task['revision'] and
                         current.get('dispatch_budget_id') == budget_id and
-                        (current.get('usage', {}).get('run_budget') or {}).get('id') != budget_id and
-                        not current.get('automatic_stop') and task.get('automatic_stop')):
-                    current['automatic_stop'] = task['automatic_stop']
+                        (current.get('usage', {}).get('run_budget') or {}).get('id') != budget_id):
+                    if not current.get('automatic_stop') and task.get('automatic_stop'):
+                        current['automatic_stop'] = task['automatic_stop']
+                    if human_reply:
+                        current.setdefault('usage', {}).pop('human_turn', None)
+                        prior = (task.get('usage') or {}).get('human_turn')
+                        if prior:
+                            current['usage']['human_turn'] = prior
             await asyncio.to_thread(repository().mutate, 'task', task['id'], restore)
             raise
     params = dict(assistant_id='workorder-agent',
@@ -161,7 +176,8 @@ async def _continue_feedback(task):
     if task.get('control') != 'running':
         return await _feedback_state(task, 'waiting', status=task['control'],
                                      summary='修改已保存，恢复任务后继续处理')
-    limits = task['capability']['config']['runtime']
+    from backend.harness.stopping import effective_limits
+    limits = effective_limits(task)
     if any(task.get('usage', {}).get(key, 0) >= limits[key]
            for key in ('model_calls', 'tool_calls', 'active_seconds')):
         return await _feedback_state(task, 'blocked', status='budget_exhausted',

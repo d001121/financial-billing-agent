@@ -84,7 +84,7 @@ def test_new_native_interrupt_does_not_get_blocked_by_consumed_reply(host,monkey
     assert post.await_count==1
 
 
-@pytest.mark.parametrize('case',['stale','no_interrupt','budget','paused','invalid_text'])
+@pytest.mark.parametrize('case',['stale','no_interrupt','paused','invalid_text'])
 def test_invalid_reply_never_dispatches_or_edits(host,monkeypatch,case):
     repo,_,task=host
     sdk,post=setup_server(monkeypatch,repo)
