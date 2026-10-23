@@ -44,6 +44,7 @@ class Agent(StrictModel):
     skills: list[SkillName]
     prompt: Text
     tools: list[Name] | None = None
+    delegation_contract: bool = False
 
 
 class Agents(Versioned):

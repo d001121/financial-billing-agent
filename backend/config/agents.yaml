@@ -1,4 +1,4 @@
-version: 15
+version: 16
 agents:
 - name: document-specialist
   enabled: true
@@ -23,6 +23,18 @@ agents:
     没有的值用null；不要只用自然语言声称已完成。
 
     最多4次模型请求；优先批量读取与保存。已有候选时只修复委派范围。工具提示无进展、纠错到限或证据退化后立即返回status=blocked和真实未解决项，不声称已修好。'
+  tools:
+  - read_task_context
+  - read_materials
+  - read_document_sources
+  - read_markdown_evidence
+  - save_document_extraction
+  - read_file
+  - ls
+  - glob
+  - grep
+  - search_reviewed_experiences
+  delegation_contract: true
 - name: billing-specialist
   enabled: true
   type: agent
@@ -56,3 +68,4 @@ agents:
   - grep
   - write_todos
   - search_reviewed_experiences
+  delegation_contract: true

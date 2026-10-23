@@ -1,5 +1,6 @@
 """Small offline regressions for Bill3's repair loop. No external requests."""
 import asyncio
+import json
 from copy import deepcopy
 from concurrent.futures import ThreadPoolExecutor
 
@@ -197,7 +198,9 @@ def test_native_child_limit_returns_blocked_to_parent(host, monkeypatch):
             return proposed_call('read_task_context', {}, f'child-{len(child)}')
         parent.append(body)
         if len(parent) == 1:
-            return proposed_call('task', dict(subagent_type='billing-specialist', description='核对已保存的c1金额100 USD，只返回具体差异'), 'delegate')
+            return proposed_call('task', dict(subagent_type='billing-specialist', description=json.dumps(dict(
+                goal='核对c1', source_ids=['doc'], charge_ids=['c1'], questions=['金额是否为100 USD'],
+                acceptance=['返回差异和真实引用']))), 'delegate')
         assert 'blocked' in str(body['messages'])
         return dict(role='assistant', content='专家额度已到，已保留现有结果。')
     async def run():
@@ -387,7 +390,8 @@ def test_child_repair_stop_prevents_parent_resaving_whole_bill(host, monkeypatch
         parent.append(body)
         assert len(parent) == 1, 'parent must stop before attempting a whole-bill rewrite'
         return proposed_call('task', dict(subagent_type='document-specialist',
-            description='只核对已保存c1，复用当前原文和证据'), 'delegate')
+            description=json.dumps(dict(goal='核对c1', source_ids=['doc'], charge_ids=['c1'],
+                questions=['核对已保存金额'], acceptance=['返回差异和真实引用']))), 'delegate')
     async def run():
         _, bootstrap = offline_model(monkeypatch, task['id'], respond)
         await bootstrap.aclose()

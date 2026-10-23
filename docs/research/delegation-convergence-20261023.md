@@ -14,6 +14,16 @@
 
 第一轮定向检查24项通过（本轮4项与既有20项循环控制），后续补充中断恢复/未知结果检查并与下一阶段合并验证。一个既有 LangChain MCP Beta 提示，不代表线上时延或准确率结果。
 
+## 第二步：原生委派契约
+
+agents v16 为两个专家启用 delegation_contract，旧能力缺省 false。保持 task(description, subagent_type) 原生协议；description 用 Pydantic 校验 goal/source_ids/charge_ids/questions/acceptance。拒绝未知来源/费用和不一致范围，宿主补充任务ID、revision、能力版本、主体、候选、停止条件、工具权限和剩余共享预算；主控不能自报这些权威字段。相同契约JSON的格式/清单顺序变化不产生新任务身份。
+
+原生 SubAgentMiddleware 自定义 task_description/system_prompt，继续隔离聊天；显式排除父图的私有次数状态，HTTP共享预算不变。文档专家工具清单移除接入、评分、问用户及再次委派；补读/保存按契约校验，不允许 replace 整单，默认 read_materials 只展开委派来源。正文与原件保留，不进行模型改写。文件搜索仍可读取当前任务存档，范围约束不宣称是跨租户文件沙箱。
+
+Docs MCP subagents、custom middleware；Reference MCP SubAgentMiddleware、langgraph.prebuilt.ToolCallRequest.override；本机 DeepAgents0.7.30 实际支持 task_description、private_state_keys。原生负责隔离和派发，业务范围与身份校验是当前薄适配的具体缺口。
+
+29项定向离线检查通过，17.60秒，包括旧循环控制20项、本轮派发6项、委派契约3项。新增模糊指令/外部来源不派发、真实版本预算注入、未知结果不盲重试与原生中断恢复。无真实模型/OCR请求。
+
 ## 后续实施范围
 
-第二步在原生 task 的 description 内校验目标、范围、问题与验收条件，宿主补充真实身份/版本/预算，隔离完整聊天与非必需状态。第三步复用原生 compiled subagent 的 structured_response 交接，校验输出和真实保存状态，附宿主计量与未解决项。格式不合法直接返回 blocked，不为修复格式另发模型请求。每一步完成后提交并推送。
+第三步复用原生 compiled subagent 的 structured_response 交接，校验输出和真实保存状态，附宿主计量与未解决项。格式不合法直接返回 blocked，不为修复格式另发模型请求。每一步完成后提交并推送。

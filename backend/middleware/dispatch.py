@@ -19,6 +19,7 @@ from backend.harness.timing import active_async
 from backend.harness.stopping import RepairStop, RunBudgetStop, active_stop, stop_task, run_budget_reason
 from backend.infrastructure.repository import repository
 from backend.tools.skill_bindings import TOOL_SKILLS
+from .delegation import canonical_description, prepare_delegation, constrain_child_call, delegated_envelope
 
 
 class DispatchPolicy(AgentMiddleware):
@@ -57,6 +58,8 @@ class DispatchPolicy(AgentMiddleware):
             args.pop('reason', None)  # Rephrasing a reason is not new evidence.
         if name == 'intake_documents':
             args.pop('asset_ids', None)  # The host always owns the material set.
+        if name == 'task':
+            args['description'] = canonical_description(args.get('description'))
         identity = sha256(json.dumps([self.scope.get('role') if self.scope else 'supervisor', name, args],
             sort_keys=True, default=str, ensure_ascii=False).encode()).hexdigest()
         token = str(uuid4())
@@ -74,7 +77,9 @@ class DispatchPolicy(AgentMiddleware):
             if previous.get('status') in {'done', 'failed'} and previous.get('facts') == facts:
                 raise RepairStop('NO_PROGRESS', '相同工具与事实已经处理，没有新增证据，停止重复执行并转待办核对')
             history['attempts'][identity] = dict(token=token, status='running', facts=facts,
-                tool=name, call_id=request.tool_call.get('id'))
+                tool=name, call_id=request.tool_call.get('id'),
+                role=(self.scope or {}).get('role', 'supervisor'),
+                delegation_id=((delegated_envelope(request.state) or {}).get('host') or {}).get('delegation_id'))
             task['dispatch_history'] = history
         await self.progress_transaction(claim)
         return identity, token
@@ -183,9 +188,15 @@ class DispatchPolicy(AgentMiddleware):
                 ):
                     raise PolicyDenied(f'子Agent已禁用: {role}')
             claim = await self.claim_progress(request)
+            if name == 'task' and self.task_id:
+                task = await self.context(['capability', 'sources', 'charges', 'accounting_entity', 'usage'])
+                args = prepare_delegation(task, request.tool_call.get('args') or {}, call_id, self.scope)
+                request = request.override(tool_call=dict(request.tool_call, args=args))
+            if self.scope and self.scope.get('role') != 'supervisor':
+                request = constrain_child_call(request)
             await asyncio.to_thread(consume, self.task_id, 'tool_calls')
         except PolicyDenied as exc:
-            await self.finish_progress(claim, 'retryable')
+            await self.finish_progress(claim, 'failed')
             if isinstance(exc, RepairStop):
                 await self.stop(exc.code, str(exc))
             if self.task_id:
