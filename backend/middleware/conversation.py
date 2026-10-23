@@ -135,6 +135,9 @@ class ConversationReplies(AgentMiddleware):
             task = repository().get('task', task_id)
             reply = active_reply(task)
             historical = reply_by_id(task, reply_id)
+            if reply and reply['id'] != reply_id:
+                raise ToolException('回复编号属于旧回合；当前真实待处理回复编号为 ' + reply['id'] +
+                                    '。请按当前用户消息重新决策，不能用旧回执结束本轮。')
             # A model can replay a tool call after a native resume.  Once the
             # proposal was staged (or the reply was consumed), return the
             # original receipt instead of applying the Skill a second time.
@@ -386,7 +389,7 @@ class ConversationReplies(AgentMiddleware):
                 '只有明确要求修改字段/主体、确认或暂缓时，才调用record_review_decision。'
                 '只有本条回复解决了当前待答问题，才设置resolves_pending=true；无关字段修改不消除原待办。'
                 '有待办不代表用户每句话都在确认它；不要把聊天当作批准或宣称待办已完成。'})
-        if reply.get('kind') == 'chat':
+        if reply.get('kind') == 'chat' or reply.get('conversational'):
             content.append({'type': 'text', 'text':
                 '当前是既有账单的新聊天回合，不重新执行提取、OCR或发布。'
                 '修订只针对用户明确指定的当前费用；此前核对范围不适用于本条消息。'})
@@ -423,7 +426,7 @@ class ConversationReplies(AgentMiddleware):
             return await handler(request)
         task = await asyncio.to_thread(reply_context, self.task_id)
         reply = active_reply(task)
-        if reply and reply.get('kind') == 'chat' and request.tool_call.get('name') not in CHAT_TOOLS:
+        if reply and (reply.get('kind') == 'chat' or reply.get('conversational')) and request.tool_call.get('name') not in CHAT_TOOLS:
             return ToolMessage(content='本轮是既有账单聊天；请使用只读工具或record_review_decision处理明确修改。',
                                tool_call_id=request.tool_call.get('id'), name=request.tool_call.get('name'), status='error')
         if reply and (reply.get('proposal') or reply.get('decision_error')):
@@ -446,6 +449,16 @@ class ConversationReplies(AgentMiddleware):
             if full.get('charges'):
                 await asyncio.to_thread(reconcile_saved, self.task_id)
             full = await asyncio.to_thread(settle_saved, self.task_id)
+            stopped_reply = active_reply(full)
+            if stopped_reply and stopped_reply.get('conversational'):
+                def failed_turn(current):
+                    item = active_reply(current)
+                    if item and item['id'] == stopped_reply['id']:
+                        item.update(state='failed', completed_at=now(), decision_error=(
+                            current.get('automatic_stop') or {}).get('message') or '本轮已停止，未完成用户请求')
+                full = await asyncio.to_thread(repository().mutate, 'task', self.task_id, failed_turn,
+                                               expected_revision=full['revision'])
+                return await self.clarify_completion(full, blocking=False)
             return await self.clarify_completion(full)
         if (review.get('state') == 'pending' and review.get('blocking') is not False and review.get('source') == 'completion'
                 and review.get('revision') == task['revision']):

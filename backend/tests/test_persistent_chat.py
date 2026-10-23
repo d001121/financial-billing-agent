@@ -321,11 +321,13 @@ def test_delete_obsolete_charge_revalidates_and_resolves_its_old_question(host, 
     assert saved['accounting_entity'] == task['accounting_entity']
 
 
-def test_chat_cannot_force_extraction_or_export_tool(host):
+@pytest.mark.parametrize('kind', ['chat', 'conversation_review'])
+def test_chat_cannot_force_extraction_or_export_tool(host, kind):
     from unittest.mock import AsyncMock
     from backend.tests.test_host import request_for
     repo, _, task = host
-    repo.mutate('task', 'task-1', lambda t: t.update(conversation=[dict(id='chat', kind='chat',
+    repo.mutate('task', 'task-1', lambda t: t.update(conversation=[dict(id='chat', kind=kind,
+        conversational=True,
         revision=1, state='starting')]))
     middleware = ConversationReplies('task-1', 1, task['capability'])
     handler = AsyncMock()
@@ -333,3 +335,44 @@ def test_chat_cannot_force_extraction_or_export_tool(host):
         result = asyncio.run(middleware.awrap_tool_call(request_for(name), handler))
         assert result.status == 'error'
     assert handler.await_count == 0
+
+
+def test_old_reply_receipt_cannot_complete_a_new_user_turn(host):
+    repo, _, task = host
+    repo.mutate('task', 'task-1', lambda t: t.update(conversation=[
+        dict(id='old', text='旧问题', revision=1, state='completed', proposal=dict(action='answer')),
+        dict(id='current', text='请删除空费用', revision=1, state='starting', conversational=True)]))
+    tool = ConversationReplies('task-1', 1, task['capability']).record_tool
+    rejected = tool.invoke(dict(reply_id='old', action='answer'))
+    assert 'current' in rejected and '旧回合' in rejected
+    saved = repo.get('task', 'task-1')
+    assert not saved['conversation'][-1].get('proposal')
+    assert saved['conversation'][-1]['state'] == 'starting'
+    result = tool.invoke(dict(reply_id='current', action='edit',
+        operations=[dict(op='set', charge_id='c1', field='amount', value=65)]))
+    assert result['proposed'] is True
+
+
+def test_validation_uses_the_same_granted_ceiling_as_dispatch(host):
+    from backend.hooks.guards import validate_native_hook
+    _, _, task = host
+    maximum = task['capability']['config']['runtime']['model_calls']
+    task['usage'].update(model_calls=maximum + 1, human_turn=dict(
+        id='turn', ceilings=dict(model_calls=maximum + 6)))
+    assert validate_native_hook('budget', task) == []
+    task['usage']['model_calls'] = maximum + 7
+    assert validate_native_hook('budget', task)[0]['code'] == 'BUDGET_EXCEEDED'
+
+
+def test_stopped_conversation_is_retryable_without_new_blocking_interrupt(host):
+    repo, _, task = host
+    repo.mutate('task', 'task-1', lambda t: t.update(
+        automatic_stop=dict(code='RUN_BUDGET', revision=1, message='本轮额度已用尽'),
+        conversation=[dict(id='stopped', revision=1, state='starting',
+                           text='请核对多余费用', conversational=True, kind='conversation_review')]))
+    middleware = ConversationReplies('task-1', 1, task['capability'])
+    asyncio.run(middleware.aafter_agent({'messages': []}, None))
+    saved = repo.get('task', 'task-1')
+    assert saved['conversation'][-1]['state'] == 'failed'
+    assert saved['conversation'][-1]['decision_error'] == '本轮额度已用尽'
+    assert saved['review_request']['blocking'] is False
