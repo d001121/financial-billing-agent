@@ -49,7 +49,7 @@ def reply_by_id(task, reply_id):
 
 def reply_context(task_id):
     repo = repository()
-    return (repo.get_fields('task', task_id, ['conversation', 'review_request', 'automatic_stop'])
+    return (repo.get_fields('task', task_id, ['conversation', 'review_request', 'automatic_stop', 'records', 'charges'])
             if hasattr(repo, 'get_fields') else repo.get('task', task_id))
 
 
@@ -59,6 +59,11 @@ def reply_task_context(task_id):
               'accounting_entity', 'status']
     return (repo.get_fields('task', task_id, fields)
             if hasattr(repo, 'get_fields') else repo.get('task', task_id))
+
+
+def conversation_only(reply, task):
+    return reply.get('kind') == 'chat' or (reply.get('conversational') and bool(
+        task.get('records') or task.get('charges')))
 
 
 async def mark_reply_seen(task_id, revision, reply_id):
@@ -389,7 +394,7 @@ class ConversationReplies(AgentMiddleware):
                 '只有明确要求修改字段/主体、确认或暂缓时，才调用record_review_decision。'
                 '只有本条回复解决了当前待答问题，才设置resolves_pending=true；无关字段修改不消除原待办。'
                 '有待办不代表用户每句话都在确认它；不要把聊天当作批准或宣称待办已完成。'})
-        if reply.get('kind') == 'chat' or reply.get('conversational'):
+        if conversation_only(reply, task):
             content.append({'type': 'text', 'text':
                 '当前是既有账单的新聊天回合，不重新执行提取、OCR或发布。'
                 '修订只针对用户明确指定的当前费用；此前核对范围不适用于本条消息。'})
@@ -426,7 +431,7 @@ class ConversationReplies(AgentMiddleware):
             return await handler(request)
         task = await asyncio.to_thread(reply_context, self.task_id)
         reply = active_reply(task)
-        if reply and (reply.get('kind') == 'chat' or reply.get('conversational')) and request.tool_call.get('name') not in CHAT_TOOLS:
+        if reply and conversation_only(reply, task) and request.tool_call.get('name') not in CHAT_TOOLS:
             return ToolMessage(content='本轮是既有账单聊天；请使用只读工具或record_review_decision处理明确修改。',
                                tool_call_id=request.tool_call.get('id'), name=request.tool_call.get('name'), status='error')
         if reply and (reply.get('proposal') or reply.get('decision_error')):

@@ -353,6 +353,18 @@ def test_old_reply_receipt_cannot_complete_a_new_user_turn(host):
     assert result['proposed'] is True
 
 
+def test_native_reply_can_save_first_candidate_when_none_exist(host):
+    from backend.tests.test_host import request_for
+    from unittest.mock import AsyncMock
+    repo, _, task = host
+    repo.mutate('task', 'task-1', lambda t: t.update(records=[], charges=[], conversation=[
+        dict(id='initial', revision=1, state='starting', kind='ask_user', conversational=True)]))
+    handler = AsyncMock(return_value='first candidate saved')
+    middleware = ConversationReplies('task-1', 1, task['capability'])
+    result = asyncio.run(middleware.awrap_tool_call(request_for('save_document_extraction'), handler))
+    assert result == 'first candidate saved' and handler.await_count == 1
+
+
 def test_validation_uses_the_same_granted_ceiling_as_dispatch(host):
     from backend.hooks.guards import validate_native_hook
     _, _, task = host
