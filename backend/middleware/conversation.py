@@ -444,6 +444,11 @@ class ConversationReplies(AgentMiddleware):
             # A historical confidence tool may be return_direct. Native routing
             # gives its free-text response to the model, rather than approving it.
             return {'jump_to': 'model'}
+        if reply.get('last_error') and not reply.get('proposal'):
+            return dict(jump_to='model', messages=[AIMessage(
+                content='本轮修改提案尚未应用：' + reply['last_error'] +
+                        '。请使用当前费用ID纠正一次；无法明确目标则追问，不要把回复标为完成。',
+                id='reply-retry-' + reply['id'])])
         proposal = reply.get('proposal') or {'action': 'answer'}
         if proposal['action'] == 'edit':
             task = await asyncio.to_thread(repository().get, 'task', self.task_id)

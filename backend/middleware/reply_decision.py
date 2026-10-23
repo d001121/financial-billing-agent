@@ -110,7 +110,7 @@ class ReplyDecisionMiddleware(AgentMiddleware):
         outcome = await asyncio.to_thread(self.record_tool.invoke, payload)
         await mark_reply_seen(self.task_id, self.revision, reply['id'])
         proposed = isinstance(outcome, dict) and outcome.get('proposed')
-        text = ('已按您的回复应用修改。' if proposed else '本轮回复未能自动应用：' + str(outcome))
+        text = ('已记录修改提案，待提交和校验。' if proposed else '本轮回复未能自动应用：' + str(outcome))
         return AIMessage(content=text)
 
     async def awrap_model_call(self, request, handler):
@@ -119,6 +119,10 @@ class ReplyDecisionMiddleware(AgentMiddleware):
         task = await asyncio.to_thread(reply_context, self.task_id)
         reply = active_reply(task)
         if not reply:
+            return await handler(request)
+        if reply.get('last_error') and not reply.get('proposal'):
+            # A rejected classifier result is not a completed reply. Let the
+            # native tool loop use the rejection's current IDs for one repair.
             return await handler(request)
         full = await asyncio.to_thread(reply_task_context, self.task_id)
         if reply.get('kind') == 'chat':
@@ -161,11 +165,18 @@ class ReplyDecisionMiddleware(AgentMiddleware):
             if item.value is None and not absence:
                 continue
             operation = dict(op='set', field=item.field, value=item.value)
-            if target:
+            if item.charge_id:
+                operation['charge_id'] = item.charge_id
+            elif target:
                 operation['charge_id'] = target
             elif len(records) == 1 and records[0].get('charge_id'):
                 operation['charge_id'] = records[0]['charge_id']
             operations.append(operation)
+        current_ids = {r.get('charge_id') for r in records if r.get('charge_id')}
+        if any(op.get('charge_id') not in current_ids for op in operations):
+            # The compact schema has not resolved a real target. The native
+            # agent can read context or ask; never stage an unbound edit.
+            return await handler(request)
         has_entity = decision.accounting_entity is not None
         if (operations or has_entity) and not (records or full.get('charges')):
             # Same reason as above: no saved candidate to edit yet.

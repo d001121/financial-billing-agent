@@ -711,7 +711,7 @@ def test_candidate_entity_sentence_is_applied_without_a_model_call(host, monkeyp
     asyncio.run(middleware.awrap_model_call(SimpleNamespace(), handler))
     assert seen == [dict(
         reply_id=seen[0]['reply_id'], action='edit', operations=None,
-        set_accounting_entity=True, accounting_entity='NEPTUNE SHIPPING LIMITED')]
+        set_accounting_entity=True, accounting_entity='NEPTUNE SHIPPING LIMITED', resolves_pending=False)]
 
 
 def test_model_invented_null_fields_are_dropped_and_the_entity_is_applied(host, monkeypatch):
@@ -737,10 +737,95 @@ def test_explicit_absence_keeps_the_null_edit(host, monkeypatch):
     from backend.middleware.decision import FieldEdit, ReplyDecision
     decision = ReplyDecision(action='apply', fields=[FieldEdit(field='payment_term', value=None)])
     middleware, seen, _ = reply_middleware(
-        host, monkeypatch, '付款方式没有，留空', decision=decision, records=2)
+        host, monkeypatch, '付款方式没有，留空', decision=decision, records=1)
     asyncio.run(middleware.awrap_model_call(SimpleNamespace(), lambda request: None))
-    assert seen[0]['operations'] == [dict(op='set', field='payment_term', value=None)]
+    assert seen[0]['operations'] == [dict(op='set', charge_id='c1', field='payment_term', value=None)]
     assert seen[0]['accounting_entity'] is None
+
+
+def test_structured_multi_charge_edits_keep_their_targets(host, monkeypatch):
+    from backend.middleware.decision import FieldEdit, ReplyDecision
+    decision = ReplyDecision(action='apply', accounting_entity='Carrier', fields=[
+        FieldEdit(charge_id='c1', field='payment_term', value=None),
+        FieldEdit(charge_id='c2', field='quantity', value=None)])
+    middleware, seen, _ = reply_middleware(host, monkeypatch,
+        '主体用Carrier，第一笔付款方式清空，第二笔数量清空', decision=decision, records=2)
+    asyncio.run(middleware.awrap_model_call(SimpleNamespace(), lambda request: None))
+    assert seen[0]['operations'] == [
+        dict(op='set', charge_id='c1', field='payment_term', value=None),
+        dict(op='set', charge_id='c2', field='quantity', value=None)]
+
+
+def test_unscoped_multi_charge_edit_uses_native_agent_without_staging(host, monkeypatch):
+    from backend.middleware.decision import FieldEdit, ReplyDecision
+    decision = ReplyDecision(action='apply', fields=[FieldEdit(field='amount', value=20)])
+    middleware, seen, _ = reply_middleware(host, monkeypatch,
+        '第二笔金额改20', decision=decision, records=2)
+    called = []
+    async def handler(request):
+        called.append(request)
+        return 'native'
+    assert asyncio.run(middleware.awrap_model_call(SimpleNamespace(), handler)) == 'native'
+    assert len(called) == 1 and not seen
+
+
+def test_rejected_reply_proposal_returns_to_model_instead_of_completing(host):
+    from backend.middleware.conversation import ConversationReplies
+    repo, _, task = host
+    reply_id = str(uuid4())
+    repo.mutate('task', 'task-1', lambda t: t.update(review_request={}, conversation=[dict(
+        id=reply_id, text='修改第二笔', revision=1, state='proposed', kind='conversation_review',
+        model_seen=True, retry_count=1, last_error='缺少费用ID；可用费用：c1, c2')]))
+    result = asyncio.run(ConversationReplies('task-1', 1, task['capability']).aafter_agent(
+        {'messages': []}, None))
+    assert result['jump_to'] == 'model'
+    assert repo.get('task', 'task-1')['conversation'][0]['state'] == 'proposed'
+
+
+def test_targeted_structured_reply_commits_multiple_rows_through_native_graph(host, monkeypatch):
+    from langgraph.checkpoint.memory import InMemorySaver
+    from langchain.agents import create_agent
+    from backend.middleware.conversation import ConversationReplies
+    from backend.middleware.decision import FieldEdit, ReplyDecision
+    from backend.middleware.reply_decision import ReplyDecisionMiddleware
+    repo, _, task = host
+    reply_id = str(uuid4())
+    def arrange(current):
+        second = dict(deepcopy(current['records'][0]), charge_id='c2', quantity=11)
+        current['records'].append(second)
+        current.update(status='processing', review_request={}, conversation=[dict(
+            id=reply_id, text='第一笔付款方式清空，第二笔数量清空', revision=1,
+            state='starting', kind='conversation_review', model_seen=False,
+            question='核对费用', turn_model_calls=0)])
+    repo.mutate('task', 'task-1', arrange)
+    async def classify(self, request, current, reply):
+        return ReplyDecision(action='apply', fields=[
+            FieldEdit(charge_id='c1', field='payment_term', value=None),
+            FieldEdit(charge_id='c2', field='quantity', value=None)])
+    monkeypatch.setattr(ReplyDecisionMiddleware, 'structured_decision', classify)
+    calls = []
+    def respond(body):
+        calls.append(body)
+        raise AssertionError('successful structured decision must need no extra model request')
+    async def run():
+        model, client = offline_model(monkeypatch, 'task-1', respond)
+        try:
+            conversation = ConversationReplies('task-1', 1, task['capability'])
+            graph = create_agent(model, tools=[], middleware=[conversation,
+                ReplyDecisionMiddleware('task-1', 1, task['capability'], conversation.record_tool)],
+                checkpointer=InMemorySaver())
+            return await graph.ainvoke({'messages': [{'role': 'user', 'content': '继续'}]},
+                {'configurable': {'thread_id': 'targeted-two-row-reply'}})
+        finally:
+            await client.aclose()
+    result = asyncio.run(run())
+    saved = repo.get('task', 'task-1')
+    assert saved['revision'] == 2 and not result.get('__interrupt__') and not calls
+    assert saved['conversation'][0]['state'] == 'completed'
+    by_id = {r['charge_id']: r for r in saved['records']}
+    assert by_id['c1']['charge_details']['payment_term'] is None
+    assert by_id['c2']['quantity'] is None
+    assert by_id['c1']['charge_details']['amount'] == by_id['c2']['charge_details']['amount'] == 100
 
 
 def test_pure_role_reply_maps_to_ar_without_reopening_the_question(host, monkeypatch):

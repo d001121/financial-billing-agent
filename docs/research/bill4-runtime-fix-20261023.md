@@ -15,3 +15,13 @@ DispatchPolicy.progress_transaction 读取尚不存在的 candidate_digests/docu
 ## 单次真实验证
 
 尚未执行。用户只授权一次新账单生命周期；复用原账单4图片，原账单4不覆盖；所有后续人工干预与修复在新建的同一任务上完成。
+
+## 单次在线验证发现的回复缺陷（2026-10-24）
+
+唯一新建任务 a43744d3-9269-49db-986b-b690715bdf66，使用原账单4图片，原账单未修改。首次保存通过，但模型误用费用名引用并将模糊数量提为11。两轮修复后REPAIR_LIMIT停止，12次模型（其中账单专家3次）、11次工具、活跃99.148秒，转入原生conversation_review中断。此结果验证实际退出，不证明自动提取全对。
+
+第一次联调人工回复要求测试主体、数量与付款方式调整，ReplyDecision的FieldEdit原无charge_id与quantity；多费用fields转换为无目标操作被拒绝。旧after_agent把last_error而无proposal的回复当answer完成，未实际修订并重新提问。修复：结构化field包含真实charge_id与数量/单价，逐项保留目标；无有效目标回到原生handler；可恢复拒绝通过现有jump_to=model进入一次纠正，last_error时跳过重复分类，第二次拒绝仍按已有decision_error/6次回复预算结束。提案提示不再提前宣称已应用。未新增Agent或runner，沿用human-review事务。
+
+新增4项回归先失败后通过，涵盖目标/清空/原生图提交及拒绝恢复；10项回复相关定向离线检查7.04秒通过，未全量测试。同步既有纯主体测试缺少resolves_pending的旧断言。
+
+框架查证：Docs MCP /oss/python/langchain/middleware/custom 的wrap_model_call、after_agent及jump_to；Reference MCP langchain.agents.middleware.types.AgentMiddleware。当前安装组合不变；现成中间件负责原生跳转，应用只补业务费用ID传递及失败回执处理。
