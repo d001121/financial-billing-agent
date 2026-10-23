@@ -344,6 +344,7 @@ export interface ConversationReply {
   kind?: string;
   tool_call_id?: string | null;
   anchor_message_id?: string | null;
+  response_message_id?: string | null;
   revision: number;
   state: string;
   at: string;

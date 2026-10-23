@@ -6,6 +6,31 @@ export type ActivityEntry =
   | { id: string; kind: "message"; text: string; role: 'assistant' | 'user'; delivery?: string }
   | { id: string; kind: "tool"; tool: AssembledToolCall };
 
+// Checkpoints define persisted order; live-only messages extend that order.
+// This is a display projection, never a replacement for SDK state or reducers.
+export function mergeMessageProjections(live: BaseMessage[], checkpoint: BaseMessage[], streaming: boolean): BaseMessage[] {
+  if (!checkpoint.length) return live;
+  if (!live.length) return checkpoint;
+  const result = [...checkpoint];
+  const liveIsCurrent = streaming && live.some(message => message.id === checkpoint.at(-1)?.id);
+  let pending: BaseMessage[] = [];
+  for (const message of live) {
+    const index = result.findIndex(saved => message.id && saved.id === message.id);
+    if (index < 0) {
+      pending.push(message);
+      continue;
+    }
+    const saved = result[index]!;
+    // A delayed partial token projection must not shorten a completed reply.
+    const savedIsLonger = saved.text !== message.text && saved.text.startsWith(message.text);
+    const liveIsLonger = message.text.length > saved.text.length && message.text.startsWith(saved.text);
+    if (!savedIsLonger && (liveIsCurrent || liveIsLonger)) result[index] = message;
+    result.splice(index, 0, ...pending);
+    pending = [];
+  }
+  return [...result, ...pending];
+}
+
 // The SDK owns assembly and status. This is only a display order over its projections.
 export function activityEntries(messages: BaseMessage[], tools: AssembledToolCall[], replies: ConversationReply[] = []): ActivityEntry[] {
   const byId = new Map(tools.map((tool) => [tool.id, tool]));
@@ -13,6 +38,8 @@ export function activityEntries(messages: BaseMessage[], tools: AssembledToolCal
   const entries: ActivityEntry[] = [];
   const shownReplies = new Set<string>();
   const shownQuestions = new Set<string>();
+  const messageIds = new Set(messages.map(message => message.id));
+  const hasNativeChat = (reply: ConversationReply) => reply.kind === 'chat' && messageIds.has(`chat-user-${reply.id}`);
   const addReply = (reply: ConversationReply) => {
     if (shownReplies.has(reply.id)) return;
     if (reply.tool_call_id && reply.question && !shownQuestions.has(reply.tool_call_id)) {
@@ -23,6 +50,8 @@ export function activityEntries(messages: BaseMessage[], tools: AssembledToolCal
     shownReplies.add(reply.id);
   };
   for (const [index, message] of messages.entries()) {
+    replies.filter(reply => !reply.tool_call_id && !hasNativeChat(reply) &&
+      !messageIds.has(reply.anchor_message_id || '') && reply.response_message_id === message.id).forEach(addReply);
     // Historical native ask_user replies are ToolMessages, not HumanMessages.
     // Initial/internal user task snapshots must never be presented as human chat.
     if (ToolMessage.isInstance(message) && message.name === 'ask_user' &&
@@ -31,6 +60,7 @@ export function activityEntries(messages: BaseMessage[], tools: AssembledToolCal
     }
     if (!AIMessage.isInstance(message)) {
       replies.filter(r => r.kind === 'chat' && message.id === `chat-user-${r.id}`).forEach(addReply);
+      replies.filter(r => !r.tool_call_id && !hasNativeChat(r) && r.anchor_message_id === message.id).forEach(addReply);
       continue;
     }
     if (message.text.trim()) entries.push({ id: `message:${message.id || index}`, kind: "message", text: message.text, role:'assistant' });
@@ -47,7 +77,7 @@ export function activityEntries(messages: BaseMessage[], tools: AssembledToolCal
       }
       replies.filter(r => r.tool_call_id === call.id).forEach(addReply);
     }
-    replies.filter(r => !r.tool_call_id && r.anchor_message_id === message.id).forEach(addReply);
+    replies.filter(r => !r.tool_call_id && !hasNativeChat(r) && r.anchor_message_id === message.id).forEach(addReply);
   }
   for (const tool of tools) {
     if (!used.has(tool.id)) {

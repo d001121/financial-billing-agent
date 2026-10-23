@@ -8,7 +8,7 @@ import type { ConversationReply, Task, Todo } from '../types/contracts';
 import AgentActivityFeed from './AgentActivityFeed.vue';
 import AgentExpertActivity from './AgentExpertActivity.vue';
 import AgentMessage from './AgentMessage.vue';
-import { toolLabel } from '../utils/agentActivity';
+import { mergeMessageProjections, toolLabel } from '../utils/agentActivity';
 
 const props = defineProps<{ task: Task; technical?: boolean; connectionEpoch?: number }>();
 const emit = defineEmits<{ refresh: []; rejoin: []; updated: [task: Task]; locate: [chargeId: string, field: string]; edit: [chargeId: string, field: string] }>();
@@ -45,8 +45,12 @@ watch(text, () => { if (!sending.value) requestId.value = ''; });
 const replies = computed(() => {
   const saved = new Map((props.task.conversation || []).map(reply => [reply.id, reply]));
   for (const reply of localReplies.value) {
+    const persisted = saved.get(reply.id);
     if (!saved.has(reply.id) || reply.state === 'sending' ||
         saved.get(reply.id)?.state === 'failed' && reply.state !== 'failed') saved.set(reply.id, reply);
+    else if (persisted && !persisted.anchor_message_id && reply.anchor_message_id) {
+      saved.set(reply.id, {...persisted, anchor_message_id:reply.anchor_message_id});
+    }
   }
   return [...saved.values()];
 });
@@ -70,9 +74,8 @@ function hydrateNativeMessage(raw: unknown, index: number): BaseMessage | null {
 const nativeMessages = computed<BaseMessage[]>(() => (props.task.native_messages || [])
   .map(hydrateNativeMessage).filter((message): message is BaseMessage => !!message));
 const shownMessages = shallowRef<BaseMessage[]>(messages.value.length ? messages.value : nativeMessages.value), shownTools = shallowRef(toolCalls.value);
-watch([messages, nativeMessages], ([value, fallback]) => {
-  if (value.length) shownMessages.value = value;
-  else if (fallback.length) shownMessages.value = fallback;
+watch([messages, nativeMessages, isLoading], ([value, fallback, active]) => {
+  if (value.length || fallback.length) shownMessages.value = mergeMessageProjections(value, fallback, active);
 }, { immediate: true });
 watch(toolCalls, value => { if (value.length) shownTools.value = value; }, { immediate: true });
 const conversationBody = ref<HTMLElement | null>(null), following = ref(true);
@@ -205,7 +208,7 @@ watch(() => current.value?.id, (id, previous) => {
     });
   }
 }, { immediate: true });
-watch(() => [messages.value.at(-1)?.text, toolCalls.value.map(t => `${t.id}:${t.status}`).join('|'),
+watch(() => [shownMessages.value.length, shownMessages.value.at(-1)?.id, shownMessages.value.at(-1)?.text, toolCalls.value.map(t => `${t.id}:${t.status}`).join('|'),
   replies.value.length], () => {
   if (following.value) followLatest();
 }, { flush: 'post' });
@@ -253,7 +256,7 @@ async function send() {
   requestId.value ||= crypto.randomUUID();
   const reply: ConversationReply = { id:requestId.value, text:text.value.trim(), question:entry ? prompt(entry.value) : '',
     interrupt_id:entry?.id || '', kind:entry ? undefined : 'chat', tool_call_id:entry?.value.tool_call_id, revision:props.task.revision,
-    anchor_message_id:entry?.value.request_id ? 'review-question-' + entry.value.request_id : undefined,
+    anchor_message_id:entry?.value.request_id ? 'review-question-' + entry.value.request_id : shownMessages.value.at(-1)?.id,
     state:'sending', at:new Date().toISOString() };
   localReplies.value = [...localReplies.value.filter(item => item.id !== reply.id), reply];
   await nextTick(); followLatest();
