@@ -16,7 +16,7 @@ class DelegationContract(BaseModel):
     model_config = ConfigDict(extra='forbid', strict=True)
     goal: Text
     source_ids: Annotated[list[Text], Field(min_length=1, max_length=40)]
-    charge_ids: Annotated[list[Text], Field(max_length=100)] = []
+    charge_ids: list[Text] = Field(default_factory=list, max_length=100)
     questions: Annotated[list[Text], Field(min_length=1, max_length=6)]
     acceptance: Annotated[list[Text], Field(min_length=1, max_length=6)]
 
@@ -99,6 +99,8 @@ def constrain_child_call(request):
     sources = set(contract['source_ids'])
     if name == 'read_materials':
         windows = args.get('windows') or [dict(source_id=s) for s in contract['source_ids']]
+        if not isinstance(windows, list) or any(not isinstance(w, dict) for w in windows):
+            raise PolicyDenied('windows必须是JSON对象数组，请使用真实来源ID')
         if any(w.get('source_id') not in sources for w in windows):
             raise PolicyDenied('阅读超出当前委派来源范围，请返回具体缺口交主控决定')
         args['windows'] = windows
@@ -110,8 +112,13 @@ def constrain_child_call(request):
         if args.get('replace'):
             raise PolicyDenied('专家不能替换整单，只能增量保存委派范围')
         result = args.get('result') or {}
+        if not isinstance(result, dict):
+            raise PolicyDenied('result必须是JSON对象，不能把整段JSON编码成字符串')
         owned = set(contract['charge_ids'])
-        for row in result.get('charges', []):
+        rows = result.get('charges', [])
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise PolicyDenied('charges必须是JSON对象数组')
+        for row in rows:
             if owned and row.get('charge_id') not in owned:
                 raise PolicyDenied('保存超出委派费用范围')
             if row.get('source_id') and row['source_id'] not in sources:

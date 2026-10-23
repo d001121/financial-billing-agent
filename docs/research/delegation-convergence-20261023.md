@@ -24,6 +24,16 @@ Docs MCP subagents、custom middleware；Reference MCP SubAgentMiddleware、lang
 
 29项定向离线检查通过，17.60秒，包括旧循环控制20项、本轮派发6项、委派契约3项。新增模糊指令/外部来源不派发、真实版本预算注入、未知结果不盲重试与原生中断恢复。无真实模型/OCR请求。
 
-## 后续实施范围
+## 第三步：有回执的结构化交接
 
-第三步复用原生 compiled subagent 的 structured_response 交接，校验输出和真实保存状态，附宿主计量与未解决项。格式不合法直接返回 blocked，不为修复格式另发模型请求。每一步完成后提交并推送。
+ExpertHandoff 通过原生 after_agent 写入 structured_response，由现成 CompiledSubAgent/task 序列化给主控。Pydantic 验证 status/summary/saved/proposals/issues/evidence_refs，宿主追加真实任务/能力版本、委派范围、已知引用来源和共享计量。引用索引复用 document-extraction.citation_index，既不另写证据算法，也不把“引用存在”宣称为语义正确。
+
+格式不合法、未知/跨委派来源引用、修改建议没有引用、费用范围错误或无保存回执却声称保存时返回 blocked，不增加格式修复模型请求。saved 来自本运行/角色/委派ID对应的成功保存事实，不相信专家自报。结构化提案仍需主控提交与既有财务校验；done 只表示本次专业检查结束，不代表财务审批通过。
+
+验证合法保存时发现：原生隔离委派会排除父级 pinned_skills，文档专家首轮可能只有 read_task_context，直接保存会报工具不存在。现以原生 before_agent 给专家独立 pin document-extraction，只补必需正文与工具，不复制父级聊天；恢复时已有 pin 不重复添加。Docs MCP skills#pin-skills / skills-for-subagents、Reference MCP SkillsMiddleware 与本机0.7.30源码均已核对。原生 compiled structured_response 也已从 Docs/API 与安装源码核对；使用 after_agent 格式校验而非另发 with_structured_output 请求，避免增加付费调用。
+
+resource_usage 明确区分任务累计模型/工具次数与当前专家角色的单轮累计模型次数，不冒充单次委派的精确token/耗时或统计置信度；原有模型耗时/token回执仍保留。symbol/API核对使用当前两台MCP，不升级依赖。
+
+最终45项定向离线检查全部通过，24.18秒，一个既有LangChain MCP Beta提示。覆盖原生编译专家：不合法格式、假保存、假引用、无依据修改建议均blocked；合法只读交接1次专家模拟HTTP，合法保存2次，未额外修复格式；主聊天标记不进入专家，任务版本/共享次数来自宿主。还覆盖范围越界/整单replace阻断、默认阅读范围、专家额度用尽时不启动、图重建/并发重复拦截、未知结果/原生中断恢复、既有证据保护与人工回复，以及配置与Skill版本一致性。
+
+回执：backend/tests/reports/delegation-convergence-targeted.xml（本机报告，不上传真实业务材料）。模型HTTP均为MockTransport，存储为隔离事务替身；未跑全量、真实模型/OCR、正式数据库并发或在线端到端。不能据此声称实际时延/准确率提升。未启停后端、修改历史账单/原始材料或迁移固定能力；进程重载后新任务使用agents v16，旧能力缺省不强制新委派契约。

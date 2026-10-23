@@ -39,6 +39,7 @@ from backend.middleware import dispatch as dispatch_middleware, mcp_tools
 from backend.middleware import outcome
 from backend.middleware import feedback as feedback_middleware
 from backend.middleware import conversation as conversation_middleware
+from backend.middleware import handoff as handoff_middleware
 from backend.api.routes import conversation as conversation_routes
 from backend.tools import artifacts, context, skill_bindings
 from backend.tools import review as review_runtime
@@ -101,7 +102,7 @@ def host(monkeypatch, tmp_path):
         monkeypatch.setattr(module, 'RELEASES', tmp_path / 'releases')
     for module in (snapshots, skill_bindings, artifacts, context, dispatch,
                    budget, timing, dispatch_middleware, assets, confidence, tasks, reviews, exports, review_runtime, outcome,
-                   feedback_middleware, conversation_middleware, conversation_routes):
+                   feedback_middleware, conversation_middleware, conversation_routes, handoff_middleware):
         monkeypatch.setattr(module, 'repository', lambda: repo)
     monkeypatch.setattr(validation, 'repository', lambda: repo, raising=False)
     monkeypatch.setattr(sys.modules['backend.api.app'], 'repository', lambda: repo)

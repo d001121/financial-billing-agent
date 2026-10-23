@@ -13,6 +13,7 @@ from backend.infrastructure.models import make_model
 from backend.infrastructure.repository import repository
 from backend.mcp.connections import connected_tools
 from backend.middleware.assembly import base_stack
+from backend.middleware.handoff import ExpertHandoff
 from backend.tools.skill_bindings import tools_for
 from backend.harness.dispatch import check
 
@@ -62,6 +63,8 @@ async def make_graph(config: RunnableConfig, runtime: ServerRuntime):
                     spec.get('skills'), tools, provenance,
                     scope=child_scope, allowed_tools=allowed_tools,
                 )
+                if spec.get('delegation_contract'):
+                    middleware.append(ExpertHandoff(task_id, revision, cap, child_scope))
                 prompt = spec['prompt'] + (
                     f'\n当前任务ID={task_id}，revision={revision}。返回实际结果、建议和真实引用；未保存不得声称已保存。'
                 )
