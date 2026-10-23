@@ -102,8 +102,13 @@ const pending = computed(() => {
 });
 const current = computed(() => pending.value.find(i => i.id === selected.value) || pending.value[0]);
 const awaiting = computed(() => !!current.value && current.value.id !== sentInterrupt.value);
+const reminder = computed(() => {
+  const review = props.task.review_request;
+  return review?.state === 'pending' && review.blocking === false &&
+    review.revision === props.task.revision ? review : undefined;
+});
 const companyChoices = computed(() => [...new Set(
-  (current.value?.value.choices || current.value?.value.args?.choices || [])
+  (current.value?.value.choices || current.value?.value.args?.choices || reminder.value?.choices || [])
     .filter(choice => typeof choice === 'string' && choice.trim()),
 )]);
 function chooseCompany(company: string) {
@@ -123,6 +128,7 @@ const needsEntityReview = computed(() =>
   !props.task.accounting_entity &&
   !['pending', 'running'].includes(props.task.run_status || '') &&
   !pending.value.length &&
+  !reminder.value &&
   validationIssues.value.some(issue => issue.code === 'POSTING_UNRESOLVED'),
 );
 async function openEntityReview() {
@@ -274,11 +280,12 @@ onBeforeUnmount(() => { void stream.disconnect(); });
       <div class="flex"><span class="agent-symbol"><Sparkles :size="16" /></span><h3>账单助手</h3><span class="conversation-label">会话</span></div>
       <span class="conversation-status" role="status"><i v-if="isLoading || sending" class="activity-pulse" />{{ status }}</span>
     </div>
-    <div v-if="pending.length || unfinished.length || taskReminder" class="conversation-attention" aria-label="未完成事项提醒" aria-live="polite">
-      <details v-if="pending.length || unfinished.length">
-        <summary><ListTodo :size="14" /><strong>待办事项</strong><span v-if="pending.length" class="pending-count">{{ pending.length }} 项待回复</span><span v-if="unfinished.length">{{ unfinished.length }} 项计划未完成</span><ChevronDown :size="13" /></summary>
+    <div v-if="pending.length || reminder || unfinished.length || taskReminder" class="conversation-attention" aria-label="未完成事项提醒" aria-live="polite">
+      <details v-if="pending.length || reminder || unfinished.length">
+        <summary><ListTodo :size="14" /><strong>待办事项</strong><span v-if="pending.length || reminder" class="pending-count">{{ pending.length + (reminder ? 1 : 0) }} 项待回复</span><span v-if="unfinished.length">{{ unfinished.length }} 项计划未完成</span><ChevronDown :size="13" /></summary>
         <ul>
           <li v-for="entry in pending" :key="entry.id"><button type="button" class="ghost" @click="focusPending(entry.id)"><span>待回复 · {{ prompt(entry.value) }}</span><span>去回复</span></button></li>
+          <li v-if="reminder"><button type="button" class="ghost" @click="focusPending('')"><span>待补充 · {{ reminder.question }}</span><span>补充信息</span></button></li>
           <li v-for="(todo,i) in unfinished" :key="'todo-'+i"><span>{{ todo.status === 'in_progress' ? '进行中' : '未完成' }} · {{ todo.content }}</span></li>
         </ul>
       </details>

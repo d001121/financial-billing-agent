@@ -75,6 +75,13 @@ class TaskOutcome(AgentMiddleware):
             latest_reply = (current.get('conversation') or [None])[-1]
             latest_input = next((m for m in reversed(state.get('messages', []))
                                  if isinstance(m, HumanMessage)), None)
+            last_response = (state.get('messages') or [None])[-1]
+            if (latest_reply and latest_reply.get('conversational')
+                    and latest_reply.get('state') == 'completed'
+                    and latest_reply.get('response_message_id')
+                    and latest_reply['response_message_id'] == getattr(last_response, 'id', None)
+                    and (latest_reply.get('proposal') or {}).get('action', 'answer') == 'answer'):
+                return  # The current question was answered; an old todo is not a new run goal.
             if (latest_reply and latest_reply.get('kind') == 'chat'
                     and latest_reply.get('state') == 'completed'
                     and latest_input and latest_input.id == 'chat-user-' + latest_reply['id']

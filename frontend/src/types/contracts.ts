@@ -241,6 +241,8 @@ export interface Artifact {
   revision?: number;
 }
 export interface Task {
+  review_request?: { id?: string; revision?: number; state?: string; blocking?: boolean;
+    question?: string; choices?: string[]; field?: string } | null;
   interrupts?: { id: string; value: unknown }[];
   conversation?: ConversationReply[];
   native_messages?: unknown[];

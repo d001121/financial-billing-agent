@@ -133,7 +133,7 @@ def test_native_chat_answers_or_applies_explicit_edit(host, monkeypatch, edit):
 
 
 @pytest.mark.parametrize('edit,resolved', [(False, False), (True, False), (True, True)])
-def test_unrelated_chat_or_edit_keeps_native_pending_question(host, monkeypatch, edit, resolved):
+def test_unrelated_chat_or_edit_keeps_reminder_without_hijacking_answer(host, monkeypatch, edit, resolved):
     repo, _, task = host
     question = '请核对金额。' if resolved else '请提供当前账单的付款截止日期。'
     review = dict(id='original', revision=1, question=question, state='pending', source='completion')
@@ -168,22 +168,20 @@ def test_unrelated_chat_or_edit_keeps_native_pending_question(host, monkeypatch,
             if resolved:
                 assert not result.get('__interrupt__')
                 return
-            assert len(result['__interrupt__']) == 1
-            assert result['__interrupt__'][0].value['description'] == question
-            assert result['__interrupt__'][0].value['revision'] == (2 if edit else 1)
-            assert result['__interrupt__'][0].id != pending.id
+            assert not result.get('__interrupt__')
+            assert result['messages'][-1].content != question
             current = repo.get('task', 'task-1')
             assert current['review_request']['state'] == 'pending'
-            assert current['status'] == 'awaiting_input'
+            assert current['review_request']['blocking'] is False
             next_reply = str(uuid4())
             deferred_id.append(next_reply)
             def add_reply(saved):
                 saved['conversation'].append(dict(id=next_reply, text='暂缓', question=question,
-                    interrupt_id=result['__interrupt__'][0].id, conversational=True, kind='conversation_review',
+                    interrupt_id='', conversational=True, kind='chat',
                     revision=current['revision'], state='starting', model_seen=False))
             repo.mutate('task', 'task-1', add_reply)
-            ended = await graph(current['revision']).ainvoke(Command(resume={result['__interrupt__'][0].id:
-                dict(reply_id=next_reply, expected_revision=current['revision'])}), config)
+            ended = await graph(current['revision']).ainvoke({'messages': [dict(role='user',
+                id='chat-user-' + next_reply, content='暂缓')]}, config)
             assert not ended.get('__interrupt__')
         finally:
             await http.aclose()
@@ -196,6 +194,31 @@ def test_unrelated_chat_or_edit_keeps_native_pending_question(host, monkeypatch,
         assert saved['conversation'][1]['state'] == 'completed'
     assert saved['revision'] == (2 if edit else 1)
     assert len(saved.get('history') or []) == (1 if edit else 0)
+
+
+def test_informational_review_does_not_lock_new_chat(host, monkeypatch):
+    repo, _, _ = host
+    _, post = chat_server(monkeypatch, repo)
+    repo.mutate('task', 'task-1', lambda t: t.update(review_request=dict(
+        id='reminder', revision=1, state='pending', blocking=False, question='请说明收付款关系')))
+    result = TestClient(app).post('/api/tasks/task-1/reply', json=chat_request())
+    assert result.status_code == 200, result.text
+    assert post.await_count == 1
+
+
+def test_answer_receipt_does_not_block_followup_decision(host):
+    from backend.tests.test_host import request_for
+    from unittest.mock import AsyncMock
+    repo, _, task = host
+    repo.mutate('task', 'task-1', lambda t: t.update(conversation=[dict(id='reply',
+        revision=1, text='是不是有一个费用是没用的', state='starting', model_seen=True,
+        kind='conversation_review', conversational=True)]))
+    middleware = ConversationReplies('task-1', 1, task['capability'])
+    middleware.record_tool.invoke(dict(reply_id='reply', action='answer'))
+    handler = AsyncMock(return_value='native followup')
+    result = asyncio.run(middleware.awrap_tool_call(request_for('ask_user'), handler))
+    assert result == 'native followup' and handler.await_count == 1
+    assert not repo.get('task', 'task-1')['conversation'][0].get('proposal')
 
 
 def test_chat_cannot_force_extraction_or_export_tool(host):

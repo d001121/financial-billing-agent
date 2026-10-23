@@ -102,7 +102,8 @@ async def reply_to_agent(task_id: str, request: Request):
     state = await sdk().threads.get_state(task['thread_id'], subgraphs=True)
     pending = [i for t in state.get('tasks', []) for i in t.get('interrupts', [])]
     if not body.get('interrupt_id'):
-        if pending or state.get('next') or (task.get('review_request') or {}).get('state') == 'pending':
+        review = task.get('review_request') or {}
+        if pending or state.get('next') or (review.get('state') == 'pending' and review.get('blocking') is not False):
             raise Conflict('有待处理的问题或尚未结束的步骤，请刷新会话后回复当前待办')
         reply = dict(id=reply_id, text=text.strip(), question='', interrupt_id='', kind='chat',
                      conversational=True, revision=task['revision'], state='starting',
@@ -147,6 +148,7 @@ async def reply_to_agent(task_id: str, request: Request):
     anchor = ('review-question-' + payload['request_id'] if payload.get('kind') == 'conversation_review'
               else messages[-1].get('id') if messages and isinstance(messages[-1], dict) else None)
     reply = dict(id=reply_id, text=text.strip(), question=question, interrupt_id=entry['id'],
+        review_context=task.get('review_request') or {},
         conversational=body.get('conversational') is True,
         question_choices=payload.get('choices') or payload.get('args', {}).get('choices') or [],
         kind=payload.get('kind') or payload.get('name'),

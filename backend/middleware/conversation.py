@@ -182,6 +182,11 @@ class ConversationReplies(AgentMiddleware):
                 # "a modification is not a confirmation" without failing the
                 # whole human turn over a mislabelled action.
                 action = 'edit'
+            if action == 'answer' and not resolves_pending:
+                # A conversational observation is not a terminal decision.
+                # The model may still explain, inspect evidence or ask a new question.
+                return dict(proposed=False, action='answer',
+                            instruction='请回答用户当前问题；如需确认删除或补充信息，可继续ask_user，不要重问旧待办。')
             if action == 'edit' and not (task.get('records') or []) and task.get('charges'):
                 # A human answer can arrive before the first finalize (ask_user
                 # during intake). Materialize records from the already saved
@@ -243,7 +248,8 @@ class ConversationReplies(AgentMiddleware):
             return
         task = await asyncio.to_thread(reply_context, self.task_id)
         review = task.get('review_request') or {}
-        if review.get('state') != 'pending' or review.get('revision') != self.revision:
+        if (review.get('state') != 'pending' or review.get('revision') != self.revision
+                or review.get('blocking') is False):
             return
         return await self.await_review(review)
 
@@ -269,38 +275,49 @@ class ConversationReplies(AgentMiddleware):
         await self.flush()
         return {'messages': [AIMessage(content=review['question'], id='review-question-' + review['id'])]}
 
-    async def clarify_completion(self, task=None):
+    async def clarify_completion(self, task=None, *, blocking=True):
         task = task or await asyncio.to_thread(repository().get, 'task', self.task_id)
         question = completion_question(task)
         if not question or task.get('control') != 'running':
             return
         from uuid import uuid4
-        review = dict(question, id=str(uuid4()), revision=task['revision'], state='pending')
+        review = dict(question, id=str(uuid4()), revision=task['revision'], state='pending', blocking=blocking)
         def reserve(current):
             existing = current.get('review_request') or {}
-            if existing.get('state') == 'pending' and existing.get('revision') == current['revision']:
+            if (existing.get('state') == 'pending' and existing.get('revision') == current['revision']
+                    and existing.get('blocking', True) == blocking):
                 return
-            current.update(review_request=review, status='awaiting_input', auto_review=None,
-                           summary=question.get('summary') or 'AR/AP需要补充本主体的收付款关系，已保存的提取结果保持可见。')
+            current.update(review_request=review, auto_review=None)
+            if blocking:
+                current.update(status='awaiting_input',
+                    summary=question.get('summary') or 'AR/AP需要补充本主体的收付款关系，已保存的提取结果保持可见。')
         saved = await asyncio.to_thread(repository().mutate, 'task', self.task_id, reserve,
                                         expected_revision=task['revision'])
         await self.flush()
+        if not blocking:
+            return
         update = await self.await_review(saved['review_request'])
         return dict(update, jump_to='model')
 
     async def keep_question(self, reply, revision):
-        """Keep an unanswered question in the native checkpoint after another turn."""
+        """Retain an unresolved business todo without interrupting a new topic."""
         from uuid import uuid4
-        review = dict(id=str(uuid4()), revision=revision, source='completion',
-                      action='edit', state='pending', question=reply['question'],
-                      choices=reply.get('question_choices') or [])
+        task = await asyncio.to_thread(repository().get, 'task', self.task_id)
+        previous = reply.get('review_context') or task.get('review_request') or {}
+        managed = previous.get('source') == 'completion' and previous.get('field') in (
+            'accounting_entity', 'posting_type', 'automatic_stop')
+        question = completion_question(task) if managed else previous
+        review = dict(question or previous, id=str(uuid4()), revision=revision,
+                      state='pending' if question else 'resolved', blocking=False,
+                      question=(question or previous).get('question') or reply.get('question', ''),
+                      choices=(question or previous).get('choices') or reply.get('question_choices') or [])
         def keep_pending(current):
-            current.update(review_request=review, status='awaiting_input')
+            current['review_request'] = review
+            if current.get('status') == 'awaiting_input':
+                current['status'] = 'completed_with_gaps'
         await asyncio.to_thread(repository().mutate, 'task', self.task_id, keep_pending,
                                 expected_revision=revision)
         await self.flush()
-        update = await self.await_review(review)
-        return dict(update, jump_to='model')
 
     async def awrap_model_call(self, request, handler):
         if not self.task_id:
@@ -351,7 +368,11 @@ class ConversationReplies(AgentMiddleware):
             '再重试应用这条回复；不要直接放弃或结束。'
             '它通过既有human-review Skill提交，不能只在聊天中说已修改，也不要用提取工具覆盖人工锁定值。'
             '只在用户明确确认当前结果时用confirm；修改请求、不知道、拒绝不能当作确认。'
-            '无明确修改时用answer；需要暂缓时用defer。不要重复已成功的OCR/读取。'
+            '先处理用户最新目标，旧待办只是背景，不能强迫用户先回答它。普通询问直接回答；需要暂缓时用defer。'
+            '用户质疑重复或多余费用时，读取当前记录和必要原文，指出具体费用及依据；'
+            '疑问不等于删除授权，需删除确认时用ask_user询问具体费用。'
+            '明确要求删除用operations=[{"op":"delete","charge_id":"真实ID"}]，拆分用split；不要只口头承诺或重做提取。'
+            '不要重复已成功的OCR/读取。'
             '回复不清楚时ask_user追问。用户明确本主体收款或付款时，修订对应费用的creditor/debtor关系，'
             '仅修改posting_type不会替代财务关系校验；不得假定用户未声明的关系。'
             '修订提案在本轮结束时应用，结果以最终校验为准。\n' + dumps({
@@ -426,12 +447,14 @@ class ConversationReplies(AgentMiddleware):
                 await asyncio.to_thread(reconcile_saved, self.task_id)
             full = await asyncio.to_thread(settle_saved, self.task_id)
             return await self.clarify_completion(full)
-        if (review.get('state') == 'pending' and review.get('source') == 'completion'
+        if (review.get('state') == 'pending' and review.get('blocking') is not False and review.get('source') == 'completion'
                 and review.get('revision') == task['revision']):
             update = await self.await_review(review)
             return dict(update, jump_to='model')
         reply = active_reply(task)
         if not reply or task['revision'] != self.revision:
+            if (task.get('conversation') or [{}])[-1].get('conversational'):
+                return
             return await self.clarify_completion()
         if reply.get('decision_error'):
             def failed(current):
@@ -507,9 +530,12 @@ class ConversationReplies(AgentMiddleware):
                 note += 'AR/AP尚未确定：' + '；'.join(gaps) + '。请说明当前主体在这笔费用中是收款方还是付款方，或补充双方关系。'
             if (reply.get('conversational') and reply.get('interrupt_id')
                     and not proposal.get('resolves_pending')):
-                return await self.keep_question(reply, task['revision'])
+                await self.keep_question(reply, task['revision'])
             if completion_question(task):
-                return await self.clarify_completion(task)
+                if reply.get('conversational'):
+                    await self.clarify_completion(task, blocking=False)
+                else:
+                    return await self.clarify_completion(task)
             return {'messages': [AIMessage(content=f'已按您的回复更新至第 {task["revision"]} 版，并重新核对费用。{note}请在下方查看结果与原文。',
                 id='reply-result-' + reply['id'])]}
         if proposal['action'] == 'confirm':
@@ -518,9 +544,14 @@ class ConversationReplies(AgentMiddleware):
         def complete(current):
             item = active_reply(current)
             if item and item['id'] == reply['id']:
-                item.update(state='completed', completed_at=now())
+                last = (state.get('messages') or [None])[-1]
+                item.update(state='completed', completed_at=now(),
+                            response_message_id=getattr(last, 'id', None))
             if proposal['action'] == 'defer':
                 current['status'] = 'review_deferred'
+            if proposal['action'] in ('defer', 'confirm') or proposal.get('resolves_pending'):
+                if current.get('review_request'):
+                    current['review_request']['state'] = 'answered'
         await asyncio.to_thread(repository().mutate, 'task', self.task_id, complete,
                                 expected_revision=self.revision)
         await self.flush()
@@ -531,5 +562,7 @@ class ConversationReplies(AgentMiddleware):
         if (reply.get('conversational') and reply.get('interrupt_id')
                 and proposal['action'] == 'answer' and not proposal.get('resolves_pending')):
             return await self.keep_question(reply, self.revision)
+        if reply.get('conversational'):
+            return
         if proposal['action'] != 'defer':
             return await self.clarify_completion()
