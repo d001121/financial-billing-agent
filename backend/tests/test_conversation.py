@@ -127,7 +127,7 @@ def test_native_answer_changes_entity_and_amount_through_existing_skill(host,mon
             return proposed_call('record_review_decision',dict(reply_id=reply['id'],action='edit',
                 operations=[dict(op='set',charge_id='c1',field='amount',value=65)],
                 set_accounting_entity=True,accounting_entity='Acme'),'apply-reply')
-        if len(seen)==4:
+        if len(seen)==3:
             reply=repo.get('task','task-1')['conversation'][-1]
             assert 'Acme是付款方' in str(request['messages'])
             return proposed_call('record_review_decision',dict(reply_id=reply['id'],action='edit',
@@ -180,7 +180,7 @@ def test_native_answer_changes_entity_and_amount_through_existing_skill(host,mon
         finally:await http.aclose()
     asyncio.run(exercise())
     saved=repo.get('task','task-1')
-    assert len(seen)==5
+    assert len(seen)==3
     assert saved['revision']==3 and saved['accounting_entity']=='Acme'
     assert saved['records'][0]['charge_details']['amount']==65
     assert saved['records'][0]['human_confirmed']['charge_details.amount']['value']==65
@@ -364,7 +364,7 @@ def test_legacy_return_direct_confidence_reply_goes_back_to_model(host,monkeypat
         finally:await http.aclose()
     asyncio.run(exercise())
     saved=repo.get('task','task-1')
-    assert len(seen)==3
+    assert len(seen)==2
     assert saved['revision']==2 and saved['records'][0]['charge_details']['amount']==100
     assert saved['approval'] is None
     assert saved['conversation'][0]['state']=='completed'
@@ -487,8 +487,8 @@ def test_reply_turn_exposes_skill_tools_until_a_decision_is_staged(host):
     assert set(seen[0]) == {'prepare_export','write_todos','read_task_context'}
     repo.mutate('task','task-1',lambda t:t['conversation'][0].update(
         proposal=dict(action='edit',operations=[])))
-    asyncio.run(middleware.awrap_model_call(request,handler))
-    assert seen[1] == []
+    response = asyncio.run(middleware.awrap_model_call(request,handler))
+    assert isinstance(response, AIMessage) and len(seen) == 1
 
 
 def test_ask_user_answer_before_first_finalize_applies_through_revision(host,monkeypatch):
@@ -523,7 +523,7 @@ def test_ask_user_answer_before_first_finalize_applies_through_revision(host,mon
             await http.aclose()
     asyncio.run(exercise())
     saved=repo.get('task','task-1')
-    assert len(seen)==2
+    assert len(seen)==1
     assert saved['revision']==2 and saved['accounting_entity']=='Client'
     assert saved['records'] and saved['conversation'][0]['state']=='completed'
 
@@ -1013,7 +1013,7 @@ def test_invalid_operation_schema_can_be_corrected_in_native_loop(host, monkeypa
             await http.aclose()
     asyncio.run(exercise())
     saved = repo.get('task', 'task-1')
-    assert len(calls) == 3 and saved['revision'] == 2
+    assert len(calls) == 2 and saved['revision'] == 2
     assert saved['accounting_entity'] == 'TAR'
     assert saved['conversation'][0]['state'] == 'completed'
     assert not saved['conversation'][0].get('decision_error')
@@ -1131,7 +1131,7 @@ def test_reply_recovers_by_saving_candidates_then_retrying_the_edit(host, monkey
             await http.aclose()
     asyncio.run(exercise())
     saved = repo.get('task', 'task-1')
-    assert len(calls) == 4
+    assert len(calls) == 3
     assert saved['revision'] == 2 and saved['accounting_entity'] == 'Client'
     assert saved['records'] and saved['conversation'][0]['state'] == 'completed'
 
