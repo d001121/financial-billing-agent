@@ -97,7 +97,7 @@ async def reply_to_agent(task_id: str, request: Request):
     pending = [i for t in state.get('tasks', []) for i in t.get('interrupts', [])]
     retrying = bool(previous and previous['state'] == 'failed' and not pending)
     attempts = [*(previous or {}).get('attempts', []), *([{
-        k: previous.get(k) for k in ('state', 'decision_error', 'turn_model_calls', 'completed_at')
+        k: previous.get(k) for k in ('state', 'decision_error', 'turn_model_calls', 'completed_at', 'proposal')
     }] if retrying else [])]
     if retrying and state.get('next'):
         def retry_checkpoint(current):
@@ -125,6 +125,8 @@ async def reply_to_agent(task_id: str, request: Request):
                      submitted_interrupt_id=body.get('interrupt_id') or '', attempts=attempts,
                      conversational=True, revision=task['revision'], state='starting',
                      model_seen=False, at=now())
+        if retrying and previous.get('proposal'):
+            reply.update(proposal=previous['proposal'], model_seen=True)
         def reserve_chat(current):
             if any(r['state'] in ('starting', 'running', 'proposed')
                    for r in current.get('conversation', [])):

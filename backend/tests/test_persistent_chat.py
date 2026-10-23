@@ -120,7 +120,7 @@ def test_native_chat_answers_or_applies_explicit_edit(host, monkeypatch, edit):
     assert saved['conversation'][0]['state'] == 'completed'
     assert not result.get('__interrupt__')
     if edit:
-        assert len(seen) == 2
+        assert len(seen) == 1
         assert saved['revision'] == 2 and saved['approval'] is None
         assert saved['validation']['revision'] == 2
         assert saved['records'][0]['charge_details']['amount'] == 65
@@ -144,7 +144,7 @@ def test_unrelated_chat_or_edit_keeps_reminder_without_hijacking_answer(host, mo
     def respond(request):
         seen.append(request)
         if deferred_id:
-            return proposed_call('record_review_decision', dict(reply_id=deferred_id[0], action='defer'), 'defer') if len(seen) == (3 if edit else 2) else dict(role='assistant', content='已暂缓。')
+            return proposed_call('record_review_decision', dict(reply_id=deferred_id[0], action='defer'), 'defer') if len(seen) == 2 else dict(role='assistant', content='已暂缓。')
         if edit and len(seen) == 1:
             return proposed_call('record_review_decision', dict(reply_id=reply_id, action='edit',
                 operations=[dict(op='set', charge_id='c1', field='amount', value=65)],
@@ -341,7 +341,7 @@ def test_delete_obsolete_charge_revalidates_and_resolves_its_old_question(host, 
             await http.aclose()
     result = asyncio.run(exercise())
     saved = repo.get('task', 'task-1')
-    assert not result.get('__interrupt__') and len(seen) == 2
+    assert not result.get('__interrupt__') and len(seen) == 1
     assert saved['revision'] == 2 and [r['charge_id'] for r in saved['records']] == ['c1']
     assert [r['charge_id'] for r in saved['charges']] == ['c1']
     assert saved['review_request']['state'] == 'resolved'
@@ -447,3 +447,35 @@ def test_stopped_conversation_is_retryable_without_new_blocking_interrupt(host):
     assert saved['conversation'][-1]['state'] == 'failed'
     assert saved['conversation'][-1]['decision_error'] == '本轮额度已用尽'
     assert saved['review_request']['blocking'] is False
+
+
+def test_failed_staged_proposal_retries_without_paying_for_another_model(host, monkeypatch):
+    repo, _, task = host
+    chat_server(monkeypatch, repo)
+    request = chat_request() | dict(interrupt_id='consumed', text='把金额改为65')
+    proposal = dict(action='edit', resolves_pending=True,
+                    operations=[dict(op='set', charge_id='c1', field='amount', value=65)])
+    repo.mutate('task', 'task-1', lambda t: t.update(review_request=dict(
+        id='old-question', revision=1, state='pending', blocking=False, question='请确认金额'), conversation=[dict(
+        id=request['reply_id'], text=request['text'], interrupt_id='consumed', revision=1,
+        state='failed', decision_error='本轮额度用尽', proposal=proposal, conversational=True)]))
+    response = TestClient(app).post('/api/tasks/task-1/reply', json=request)
+    assert response.status_code == 200, response.text
+    row = repo.get('task', 'task-1')['conversation'][-1]
+    assert row['proposal'] == proposal and row['attempts'][-1]['proposal'] == proposal
+    def no_model(body):
+        raise AssertionError('A valid staged proposal needs no additional model HTTP request')
+    async def exercise():
+        model, http = offline_model(monkeypatch, 'task-1', no_model)
+        try:
+            middleware = ConversationReplies('task-1', 1, task['capability'])
+            graph = create_agent(model, tools=[], middleware=[TaskOutcome('task-1', 1), middleware,
+                ReplyDecisionMiddleware('task-1', 1, task['capability'], middleware.record_tool)])
+            return await graph.ainvoke({'messages': [dict(role='user', content=request['text'])]})
+        finally:
+            await http.aclose()
+    asyncio.run(exercise())
+    saved = repo.get('task', 'task-1')
+    assert saved['revision'] == 2 and saved['records'][0]['charge_details']['amount'] == 65
+    assert saved['conversation'][-1]['state'] == 'completed'
+    assert saved['review_request']['state'] == 'answered'

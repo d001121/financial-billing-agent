@@ -336,6 +336,9 @@ class ConversationReplies(AgentMiddleware):
         if not reply:
             return await handler(request.override(tools=[t for t in request.tools
                 if getattr(t, 'name', None) != 'record_review_decision']))
+        if reply.get('proposal'):
+            await mark_reply_seen(self.task_id, self.revision, reply['id'])
+            return AIMessage(content='已接收本轮处理意见，正在提交修订并校验。')
         limit = int(((self.cap or {}).get('config', {}).get('runtime') or {}).get('turn_model_calls', 6))
         used = int(reply.get('turn_model_calls') or 0)
         if used >= limit:
@@ -447,7 +450,7 @@ class ConversationReplies(AgentMiddleware):
             return
         task = await asyncio.to_thread(reply_context, self.task_id)
         review = task.get('review_request') or {}
-        if active_stop(task):
+        if active_stop(task) and not (active_reply(task) or {}).get('proposal'):
             # after_agent hooks execute in reverse order: settle first here,
             # so completion can open the real todo before TaskOutcome runs.
             full = await asyncio.to_thread(repository().get, 'task', self.task_id)
@@ -524,6 +527,8 @@ class ConversationReplies(AgentMiddleware):
                     confidence_interrupt=None, status='processing')
                 if 'accounting_entity' in proposal:
                     current['accounting_entity'] = proposal['accounting_entity']
+                if proposal.get('resolves_pending') and current.get('review_request'):
+                    current['review_request']['state'] = 'answered'
                 current.update(function(self.cap, 'human-review', 'prepare_recalculation')(
                     {'task': current, 'review': result}))
                 item.update(state='completed', applied_revision=current['revision'], completed_at=now())
