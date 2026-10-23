@@ -7,7 +7,7 @@ only transport provenance and the pending proposal live in this adapter.
 """
 import asyncio
 import re
-from typing import Literal
+from typing import Any, Literal, NotRequired, TypedDict
 
 from langchain.agents.middleware import AgentMiddleware, hook_config
 from langchain.messages import AIMessage, SystemMessage, ToolMessage
@@ -25,6 +25,14 @@ from backend.tools.review import settle_saved
 
 CHAT_TOOLS = {'read_task_context', 'read_document_sources', 'read_markdown_evidence',
               'read_file', 'ls', 'glob', 'grep', 'record_review_decision', 'ask_user'}
+
+
+class ReviewOperation(TypedDict):
+    """Expose the Skill's operation discriminator to native tool validation."""
+    op: Literal['set', 'delete', 'split']
+    charge_id: NotRequired[str]
+    field: NotRequired[str]
+    value: NotRequired[Any]
 
 
 def active_reply(task):
@@ -69,7 +77,8 @@ async def mark_reply_seen(task_id, revision, reply_id):
 def _role_is_explicit(text: str) -> bool:
     """Return whether the caller actually stated a payment relationship."""
     value = (text or '').lower()
-    return bool(re.search(r'收款|付款|付费|应收|应付|ar\b|ap\b|pay(?:er|ment)?|paid|payer|creditor|debtor', value))
+    return bool(re.search(r'收款|付款|付费|应收|应付|'
+                          r'(?<![a-z0-9_])(?:ar|ap|pay(?:er|ment)?|paid|creditor|debtor)(?![a-z0-9_])', value))
 
 
 def _normalise_review_operations(task, operations, text):
@@ -114,7 +123,7 @@ class ConversationReplies(AgentMiddleware):
 
         @tool
         def record_review_decision(reply_id: str, action: Literal['answer', 'edit', 'confirm', 'defer'],
-                operations: list[dict] | None = None, set_accounting_entity: bool = False,
+                operations: list[ReviewOperation] | None = None, set_accounting_entity: bool = False,
                 accounting_entity: str | None = None, resolves_pending: bool = False) -> dict:
             """理解调用方本轮真实回复后记录处理意见。修改用现有charge_id和set/delete/split操作；
             主体变更须set_accounting_entity=true。confirm只用于明确确认当前结果，修改不是确认。

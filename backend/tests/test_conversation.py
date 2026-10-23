@@ -904,7 +904,8 @@ def test_pure_role_reply_commits_ar_and_does_not_reopen_the_question(host, monke
     assert (saved.get('review_request') or {}).get('state') != 'pending'
 
 
-def test_candidate_entity_sentence_commits_a_revision_without_the_model(host, monkeypatch):
+@pytest.mark.parametrize('entity', ['NEPTUNE SHIPPING LIMITED', 'TAR', 'SHA'])
+def test_candidate_entity_sentence_commits_a_revision_without_the_model(host, monkeypatch, entity):
     """The exact failure of task daca: one entity sentence, three charges."""
     from langchain.agents import create_agent
     from backend.middleware.conversation import ConversationReplies
@@ -919,8 +920,9 @@ def test_candidate_entity_sentence_commits_a_revision_without_the_model(host, mo
         current['records'].append(dict(deepcopy(current['records'][0]), charge_id='c2',
                                        charge_details=dict(current['records'][0]['charge_details'],
                                                            amount=55)))
-        current.update(status='awaiting_input', review_request={}, conversation=[dict(
-            id=reply_id, text='本次记账主体是NEPTUNE SHIPPING LIMITED。', revision=1,
+        current.update(status='awaiting_input', review_request=dict(
+            action='entity', field='accounting_entity', choices=[entity]), conversation=[dict(
+            id=reply_id, text=f'本次记账主体是{entity}。', revision=1, conversational=True,
             state='starting', kind='conversation_review', model_seen=False,
             question='本次为哪家公司记账？', turn_model_calls=0)])
     repo.mutate('task', 'task-1', arrange)
@@ -952,9 +954,69 @@ def test_candidate_entity_sentence_commits_a_revision_without_the_model(host, mo
     saved = repo.get('task', 'task-1')
     assert calls == []
     assert saved['revision'] == 2
-    assert saved['accounting_entity'] == 'NEPTUNE SHIPPING LIMITED'
+    assert saved['accounting_entity'] == entity
     assert {r['financial_attributes']['accounting_entity'] for r in saved['records']} == {
-        'NEPTUNE SHIPPING LIMITED'}
+        entity}
+
+
+@pytest.mark.parametrize('entity', ['TAR', 'SHA'])
+def test_entity_choice_does_not_authorize_model_party_edits(entity):
+    from backend.middleware.conversation import _normalise_review_operations
+    from backend.middleware.reply_decision import entity_from_reply
+    task = dict(records=[dict(charge_id='c1')], review_request=dict(choices=[entity]))
+    assert entity_from_reply(task, dict(text=entity)) == entity
+    edits, ignored = _normalise_review_operations(task, [
+        dict(op='set', charge_id='c1', field='creditor', value='guessed company'),
+        dict(op='set', charge_id='c1', field='posting_type', value='AR')],
+        f'本次记账主体是{entity}。')
+    assert edits == [] and ignored == ['creditor', 'posting_type']
+    edits, _ = _normalise_review_operations(task, [
+        dict(op='set', charge_id='c1', field='posting_type', value='AR')], '本主体是AR')
+    assert len(edits) == 1
+
+
+@pytest.mark.parametrize('op', [None, 'update'])
+def test_invalid_operation_schema_can_be_corrected_in_native_loop(host, monkeypatch, op):
+    from langchain.agents import create_agent
+    from backend.middleware.conversation import ConversationReplies
+    repo, _, task = host
+    reply_id = str(uuid4())
+    repo.mutate('task', 'task-1', lambda t: t.update(review_request={}, conversation=[dict(
+        id=reply_id, text='本次记账主体是TAR。', revision=1, state='starting',
+        kind='conversation_review', model_seen=False, turn_model_calls=0)]))
+    calls = []
+    def respond(body):
+        calls.append(body)
+        if len(calls) == 1:
+            edit = dict(charge_id='c1', field='creditor', value='unrequested company')
+            if op is not None:
+                edit['op'] = op
+            return proposed_call('record_review_decision', dict(reply_id=reply_id,
+                action='edit', operations=[edit], set_accounting_entity=True,
+                accounting_entity='TAR'), 'bad-operation')
+        if len(calls) == 2:
+            saved = repo.get('task', 'task-1')
+            assert not saved['conversation'][0].get('decision_error')
+            assert saved['revision'] == 1
+            assert 'operations' in str(body['messages'][-1]['content'])
+            return proposed_call('record_review_decision', dict(reply_id=reply_id,
+                action='edit', set_accounting_entity=True, accounting_entity='TAR'), 'fixed')
+        return dict(role='assistant', content='主体提案已记录')
+    async def exercise():
+        model, http = offline_model(monkeypatch, 'task-1', respond)
+        try:
+            graph = create_agent(model, tools=[], middleware=[
+                ConversationReplies('task-1', 1, task['capability'])], checkpointer=InMemorySaver())
+            await graph.ainvoke({'messages': [{'role': 'user', 'content': '继续'}]},
+                {'configurable': {'thread_id': 'operation-schema'}})
+        finally:
+            await http.aclose()
+    asyncio.run(exercise())
+    saved = repo.get('task', 'task-1')
+    assert len(calls) == 3 and saved['revision'] == 2
+    assert saved['accounting_entity'] == 'TAR'
+    assert saved['conversation'][0]['state'] == 'completed'
+    assert not saved['conversation'][0].get('decision_error')
 
 
 def test_entity_guard_leaves_role_and_mixed_sentences_to_the_model():

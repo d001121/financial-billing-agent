@@ -25,7 +25,7 @@ ABSENCE = re.compile(r'没有|无|不存在|未填写|未提供|留空|清空|�
 DEFER = re.compile(r'暂缓|跳过|不需要|先不指定|不指定')
 # "本次记账主体是A是收款方" or "…，金额50" carry more than an entity; the
 # model must interpret them, because the extra part is a second instruction.
-ROLE = re.compile(r'收款方|付款方|收款|付款|\bTAR\b|\bSHA\b', re.IGNORECASE)
+ROLE = re.compile(r'收款方|付款方|收款|付款|(?<![a-z0-9_])(?:AR|AP)(?![a-z0-9_])', re.IGNORECASE)
 OTHER_FIELD = re.compile(r'金额|币种|付款方式|单据编号|单据日期|费用|数量|单价|，|,|；|;')
 
 # A bare role answer to the AR/AP question has exactly one meaning. Mapping it
