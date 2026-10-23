@@ -153,11 +153,11 @@ async def control_task(task_id: str, request: Request):
             task = save_fields(task_id, task['revision'], feedback=revision_feedback(
                 latest, task.get('reason', ''), now()))
         if body.get('resume') is not None:
-            task = await start_run(task, command={'resume': body['resume']})
+            task = await start_run(task, command={'resume': body['resume']}, human_reply=True)
         elif body.get('message'):
-            task = await start_run(task, message=body['message'])
+            task = await start_run(task, message=body['message'], human_reply=True)
         elif pending_feedback(task):
-            task = await continue_feedback(task)
+            task = await continue_feedback(task, human_reply=True)
         elif any(t.get('interrupts') for t in state.get('tasks', [])):
             raise Conflict('当前在等待用户回复，请在聊天中说明本次目标后继续')
         elif not state.get('next'):
@@ -165,7 +165,7 @@ async def control_task(task_id: str, request: Request):
                 '调用方要求继续当前未完成任务。先检查已保存结果和未完成事项，自主选择必要的核对或追问；'
                 '复用原材料、OCR和候选，不重新开始整单，不把旧待办当成用户唯一目标。'))
         else:
-            task = await start_run(task)
+            task = await start_run(task, human_reply=True)
         return response(task)
     if body['action'] == 'restart':
         # A rebuilt task has no checkpoint to resume.  This starts a new turn
@@ -174,7 +174,7 @@ async def control_task(task_id: str, request: Request):
         task = save_fields(task_id, task['revision'], control='running')
         message = body.get('message') or (
             '请继续处理本任务的材料并生成账单建议。调用方指令：' + (task.get('instructions') or ''))
-        task = await start_run(task, message=message)
+        task = await start_run(task, message=message, human_reply=True)
         return response(task)
     raise ValueError('action必须是pause/cancel/resume/restart')
     raise ValueError('action必须是pause/cancel/resume')

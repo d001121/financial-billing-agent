@@ -155,7 +155,7 @@ async def start_run(task, *, message=None, command=None, message_id=None, human_
     return await asyncio.to_thread(repository().mutate, 'task', task['id'], accepted)
 
 
-async def continue_feedback(task):
+async def continue_feedback(task, *, human_reply=False):
     """A completed conversation gets ordinary input; pending interrupts stay pending.
 
     Docs MCP graph-api#input-to-invoke-or-stream and interrupts#resuming-interrupts.
@@ -164,7 +164,7 @@ async def continue_feedback(task):
     if not pending_feedback(task) or not task.get('thread_id'):
         return task
     try:
-        return await _continue_feedback(task)
+        return await _continue_feedback(task, human_reply=human_reply)
     except Conflict:
         raise
     except Exception as exc:
@@ -172,13 +172,13 @@ async def continue_feedback(task):
             summary=f'修改已保存，智能体续跑未成功：{type(exc).__name__}；可点击继续重试')
 
 
-async def _continue_feedback(task):
+async def _continue_feedback(task, *, human_reply=False):
     if task.get('control') != 'running':
         return await _feedback_state(task, 'waiting', status=task['control'],
                                      summary='修改已保存，恢复任务后继续处理')
     from backend.harness.stopping import effective_limits
     limits = effective_limits(task)
-    if any(task.get('usage', {}).get(key, 0) >= limits[key]
+    if not human_reply and any(task.get('usage', {}).get(key, 0) >= limits[key]
            for key in ('model_calls', 'tool_calls', 'active_seconds')):
         return await _feedback_state(task, 'blocked', status='budget_exhausted',
                                      summary='修改已保存；当前共享预算已用尽，未启动新的模型调用')
@@ -194,7 +194,8 @@ async def _continue_feedback(task):
                                  summary='修改已保存，智能体正在继续核对受影响的信息')
     # Interrupted execution without an input request resumes its checkpoint;
     # an ended graph starts a new turn on the same thread.
-    return await start_run(task, message=None if state.get('next') else feedback_message(task))
+    return await start_run(task, message=None if state.get('next') else feedback_message(task),
+                           human_reply=human_reply)
 
 
 async def _feedback_state(task, state, **fields):

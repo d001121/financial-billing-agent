@@ -266,15 +266,42 @@ def test_failed_native_reply_retries_from_actual_checkpoint(host, monkeypatch, h
     assert row['attempts'][-1]['decision_error'] == 'failed model request'
 
 
-def test_continue_on_ended_graph_starts_input_instead_of_noop_resume(host, monkeypatch):
+@pytest.mark.parametrize('has_next', [False, True])
+def test_continue_uses_actual_checkpoint_and_bounded_human_allowance(host, monkeypatch, has_next):
     repo, _, _ = host
     sdk, post = chat_server(monkeypatch, repo)
     monkeypatch.setattr('backend.api.routes.tasks.sdk', lambda: sdk)
+    sdk.threads.get_state.return_value['next'] = ['model'] if has_next else []
+    post.return_value = {'result': {'run_id': 'continued'}} if has_next else {'run_id': 'continued'}
+    maximum = repo.get('task', 'task-1')['capability']['config']['runtime']['model_calls']
+    repo.mutate('task', 'task-1', lambda t: t['usage'].update(model_calls=maximum))
     result = TestClient(app).post('/api/tasks/task-1/control', json=dict(action='resume'))
     assert result.status_code == 200, result.text
-    assert post.call_args.args == ('/threads/same-thread/runs',)
     sent = post.call_args.kwargs['json']
-    assert sent['input']['messages'][0]['content']
+    if has_next:
+        assert post.call_args.args == ('/threads/same-thread/commands',)
+        assert 'input' not in sent['params']
+    else:
+        assert post.call_args.args == ('/threads/same-thread/runs',)
+        assert sent['input']['messages'][0]['content']
+    saved = repo.get('task', 'task-1')
+    assert saved['usage']['model_calls'] == maximum
+    assert saved['usage']['human_turn']['ceilings']['model_calls'] == maximum + 6
+
+
+def test_explicit_continue_feedback_can_retry_after_previous_allowance_is_used(host, monkeypatch):
+    from backend.api.task_runtime import continue_feedback
+    repo, _, _ = host
+    sdk, post = chat_server(monkeypatch, repo)
+    maximum = repo.get('task', 'task-1')['capability']['config']['runtime']['model_calls']
+    repo.mutate('task', 'task-1', lambda t: t.update(
+        feedback=dict(state='failed', revision=1, operations=[], reason='更正费用'),
+        usage=dict(model_calls=maximum, tool_calls=0, active_seconds=0)))
+    task = repo.get('task', 'task-1')
+    blocked = asyncio.run(continue_feedback(task))
+    assert blocked['status'] == 'budget_exhausted' and post.await_count == 0
+    result = asyncio.run(continue_feedback(repo.get('task', 'task-1'), human_reply=True))
+    assert result['run_id'] == 'chat-run' and post.await_count == 1
 
 
 def test_delete_obsolete_charge_revalidates_and_resolves_its_old_question(host, monkeypatch):
