@@ -138,6 +138,49 @@ def test_mutate_fields_projects_and_merges_without_touching_material():
     assert store.get('task', 'task-1')['usage'] == {'calls': 1}
 
 
+@pytest.mark.parametrize('cache_failure', [False, True])
+def test_progress_projection_does_not_persist_absent_read_fields(cache_failure):
+    # Bill4: a progress receipt reads optional collections before the first save.
+    # Projection placeholders must not turn those absent lists into stored nulls.
+    repo, store = staged({'title': 'bill', 'revision': 1, 'charges': []})
+    repo.cache().fail = cache_failure
+
+    def claim(projection):
+        assert projection['candidate_digests'] is None
+        projection['dispatch_history'] = {'attempts': {'call-1': {'status': 'running'}}}
+
+    repo.mutate_fields('task', 'task-1',
+        ['dispatch_history', 'candidate_digests', 'documents', 'totals'], claim,
+        expected_revision=1)
+
+    def first_save(task):
+        assert 'candidate_digests' not in task
+        assert 'documents' not in task and 'totals' not in task
+        assert 'first' not in task.get('candidate_digests', [])
+        task.setdefault('candidate_digests', []).append('first')
+
+    repo.mutate('task', 'task-1', first_save, expected_revision=1)
+    repo.flush('task-1')
+    result = store.get('task', 'task-1')
+    assert result['candidate_digests'] == ['first']
+    assert result['dispatch_history']['attempts']['call-1']['status'] == 'running'
+
+
+def test_projection_keeps_explicit_clear_and_nested_change():
+    repo, _ = staged({'title': 'bill', 'revision': 1, 'usage': {'calls': 1},
+                      'approval': {'revision': 1}, 'optional': None})
+
+    def change(projection):
+        projection['usage']['calls'] += 1
+        projection['approval'] = None
+
+    result = repo.mutate_fields('task', 'task-1',
+        ['usage', 'approval', 'optional', 'absent'], change, expected_revision=1)
+    assert result['usage'] == {'calls': 2}
+    assert result['approval'] is None and result['optional'] is None
+    assert 'absent' not in result
+
+
 def test_flush_refuses_to_overwrite_a_newer_durable_revision():
     repo, store = staged({'title': 'bill', 'revision': 1})
     repo.mutate('task', 'task-1', lambda task: task.update(title='staged'), expected_revision=1)

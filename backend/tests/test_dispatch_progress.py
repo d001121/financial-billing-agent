@@ -6,6 +6,33 @@ from backend.middleware.dispatch import DispatchPolicy
 from backend.tests.test_host import host, request_for
 
 
+def test_first_extraction_save_after_progress_claim_uses_staged_repository(host, monkeypatch):
+    from backend.infrastructure.repository import StagedRepository
+    from backend.tests.test_repository_staging import MemoryCache
+    from backend.harness import dispatch
+    from backend.middleware import dispatch as middleware
+    from backend.tools import skill_bindings
+
+    store, _, task = host
+    current = store.objects['task', task['id']]
+    current.update(charges=[], records=[], extraction=None)
+    for name in ('candidate_digests', 'documents', 'totals'):
+        current.pop(name, None)
+    repo = StagedRepository(store=store, cache=MemoryCache())
+    for module in (dispatch, middleware, skill_bindings):
+        monkeypatch.setattr(module, 'repository', lambda: repo)
+    tool = next(t for t in skill_bindings.tools_for(task['id'], task['capability'])[1]
+                if t.name == 'save_document_extraction')
+    args = dict(result=dict(charges=[dict(charge_id='new', source_id='doc',
+        charge_item='THC', amount=100, currency='USD',
+        evidence=[dict(source_id='doc', anchor='p1', quote='THC USD 100')])]))
+    guard = DispatchPolicy(task['id'], 1)
+    asyncio.run(guard.claim_progress(request_for('save_document_extraction', **args)))
+    result = tool.invoke(args)
+    assert result['saved'] and result['charges'] == 1
+    assert repo.get('task', task['id'])['candidate_digests']
+
+
 DESCRIPTION = json.dumps(dict(goal='核对c1', source_ids=['doc'], charge_ids=['c1'],
     questions=['金额与原文是否一致'], acceptance=['返回差异和引用']))
 

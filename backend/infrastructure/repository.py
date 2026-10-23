@@ -364,9 +364,14 @@ class StagedRepository:
                 raise Conflict(f"revision {expected_revision} 已过期；当前为 {current['revision']}")
             keys = dict.fromkeys(('id', 'revision', *fields))
             projection = {key: deepcopy(current.get(key)) for key in keys}
+            before = deepcopy(projection)
             replacement = transform(projection)
             changed = projection if replacement is None else replacement
-            value = {**current, **changed, 'updated_at': now()}
+            # Match Repository.mutate_fields: selected absent fields are read
+            # as None, but only actual changes belong in the stored record.
+            patch = {key: value for key, value in changed.items()
+                     if key not in before or before[key] != value}
+            value = {**current, **patch, 'updated_at': now()}
             if self._write(object_id, value):
                 return deepcopy(value)
             return self.store.mutate(kind, object_id, lambda _: value,
