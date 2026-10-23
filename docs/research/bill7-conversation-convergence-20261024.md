@@ -90,3 +90,5 @@ record_review_decision的reply_id改为官方InjectedToolArg隐藏参数，ToolR
 Docs MCP tools页面明确ToolRuntime由ToolNode自动注入且对模型隐藏，Reference MCP核对InjectedToolArg及ToolCallRequest，使用安装版原生注入，不新增调度器或身份服务。89项相关离线会话测试通过（22.23秒），覆盖隐藏schema、当前身份注入、旧身份拒绝、普通聊天、局部修订、清空、多费用、中断、重试和预算；其中既有删除空费用用例改为不传reply_id，仍只1次模拟HTTP，R1→R2且剩余字段/原件保留。失败提案零模型重试仍通过。未运行真实模型/OCR或全项目测试；旧任务的Skill快照不自动迁移。
 
 收尾将显式reconcile_task_charges回执也统一为JSON兼容投影，避免同样的Decimal低分反馈触发额外模型轮；另1项原生链路离线验证通过（6.87秒），核对已有矛盾候选仅核对工具+答复共2次模拟HTTP，硬错误、缺口与approval=null保留。该用例显式pin财务Skill，验证工具已披露时的行为，不声称产品所有回合都无须按需加载Skill。
+
+最终代码已正常重载：发现旧目录两个服务分别监听2024/47906，确认两者busy=0后发送正常关闭信号；最终仅PID21192监听2024，/ok=200、busy=0。账单7与本轮修改前final-task快照逐项比较：revision、records、charges、sources、asset_ids、intake、accounting_entity、approval、usage全部相同，仍R3、累计36模型调用；本轮未重放历史任务，真实模型/OCR新增0。以上103项定向检查为13+89+1分批结果，非全项目测试。初始化等待不算账单处理性能。
