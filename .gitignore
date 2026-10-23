@@ -1,0 +1,39 @@
+# Local credentials and editor configuration
+.env
+.env.*
+!.env.example
+!.env.template
+.mcp.json
+.claude/
+.agents/
+
+# Installed runtimes, dependencies and generated assets
+backend/bishi1/
+backend/.build/
+backend/.langgraph_api/
+backend/vendor/
+frontend/node_modules/
+frontend/dist/
+cc-gpt-proxy/
+delivery/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.tsbuildinfo
+*.log
+*.lock.tmp
+.write.lock
+
+# Business originals, runtime state and local test reports
+backend/data/
+backend/tests/reports/
+docs/assignment/
+docs/screenshots/
+docs/images/
+backend/evals/datasets/original-extraction-dev.json
+*.sqlite
+*.sqlite-*
+*.db
+*.zip
+*.7z
+*.rar

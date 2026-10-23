@@ -1,0 +1,4 @@
+# The scoring function uses Python 3.11+ standard library only.
+simplejson==4.2.0
+# Tests use the host's pytest; framework discovery/tool binding uses the host's
+# installed LangChain/Deep Agents rather than bundling an execution engine.

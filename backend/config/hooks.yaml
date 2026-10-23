@@ -1,0 +1,13 @@
+version: 1
+hooks:
+  - {name: schema, enabled: true, required: true, priority: 10, skill: document-extraction, function: validate_extraction}
+  - {name: coverage, enabled: true, required: true, priority: 20, skill: document-extraction, function: validate_coverage}
+  - {name: evidence, enabled: true, required: true, priority: 30, skill: evidence-linking, function: validate_evidence}
+  - {name: amount, enabled: true, required: true, priority: 40, skill: billing-reconciliation, function: validate_amounts}
+  - {name: matching, enabled: true, required: true, priority: 50, skill: billing-reconciliation, function: validate_matching}
+  - {name: update, enabled: true, required: true, priority: 60, skill: billing-reconciliation, function: validate_updates}
+  - {name: posting, enabled: true, required: true, priority: 70, skill: billing-reconciliation, function: validate_posting}
+  - {name: revision, enabled: true, required: true, priority: 80, skill: human-review, function: validate_revision}
+  - {name: approval, enabled: true, required: true, priority: 90, skill: human-review, function: validate_approval}
+  - {name: capability, enabled: true, required: true, priority: 100, native: dispatch-policy}
+  - {name: budget, enabled: true, required: true, priority: 110, native: shared-budget}

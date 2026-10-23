@@ -1,0 +1,8 @@
+{
+  "$schema": "https://langgra.ph/schema.json",
+  "dependencies": ["."],
+  "graphs": {"workorder-agent": "backend.agents:make_graph"},
+  "env": ".env",
+  "checkpointer": {"path": "./infrastructure/checkpoints.py:checkpointer"},
+  "http": {"app": "backend.api:app"}
+}

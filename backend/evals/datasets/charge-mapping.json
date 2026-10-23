@@ -1,0 +1,596 @@
+{
+  "schema_version": "1.0",
+  "version": "synthetic-mapping-v2",
+  "synthetic": true,
+  "label_policy": "Hand-authored synthetic financial fixtures; source families are separated between regression and final. $ENTITY is substituted only with the candidate accounting entity. These fixtures do not measure OCR or real-document accuracy. A final dataset disclosed for another candidate cannot be reused as independent final evidence. v2: unsupported PP is null; only explicitly evidenced or inherited terms survive. Document numbers are scored explicitly.",
+  "cases": [
+    {
+      "case_id": "reg-alias",
+      "family_id": "synthetic-invoice-alias",
+      "dataset_role": "regression",
+      "inputs": {
+        "revision": 1,
+        "accounting_entity": "$ENTITY",
+        "existing_records": [],
+        "charges": [
+          {
+            "charge_id": "reg-alias-r1",
+            "source_id": "reg-alias",
+            "line_id": "r1",
+            "reference_no": "INV-reg-alias",
+            "document_type": "Invoice",
+            "issuer": "$ENTITY",
+            "recipient": "Synthetic Customer",
+            "charge_item": "Document Charge",
+            "amount": 10,
+            "currency": "USD",
+            "payment_term": "PP",
+            "creditor": "$ENTITY",
+            "debtor": "Synthetic Customer",
+            "evidence": [
+              {
+                "source_id": "reg-alias",
+                "anchor": "table1",
+                "quote": "Document Charge USD 10"
+              }
+            ]
+          }
+        ],
+        "sources": [
+          {
+            "source_id": "reg-alias",
+            "name": "reg-alias",
+            "status": "ready",
+            "blocks": [
+              {
+                "anchor": "table1",
+                "text": "Document Charge USD 10",
+                "authoritative": true
+              }
+            ]
+          }
+        ]
+      },
+      "reference_outputs": {
+        "records": [
+          {
+            "operation": "CREATE",
+            "source_id": "reg-alias",
+            "line_id": "r1",
+            "charge_details": {
+              "charge_item": "Documentation Fee",
+              "amount": 10,
+              "currency": "USD",
+              "payment_term": null
+            },
+            "financial_attributes": {
+              "accounting_entity": "$ENTITY",
+              "posting_type": "AR"
+            },
+            "document_info": {
+              "reference_no": "INV-reg-alias"
+            }
+          }
+        ],
+        "evidence_valid": true,
+        "amount_valid": true
+      }
+    },
+    {
+      "case_id": "reg-lines",
+      "family_id": "synthetic-terminal-detail",
+      "dataset_role": "regression",
+      "inputs": {
+        "revision": 1,
+        "accounting_entity": "$ENTITY",
+        "existing_records": [],
+        "charges": [
+          {
+            "charge_id": "reg-lines-r1",
+            "source_id": "reg-lines",
+            "line_id": "r1",
+            "reference_no": "INV-reg-lines",
+            "document_type": "Invoice",
+            "issuer": "$ENTITY",
+            "recipient": "Synthetic Customer",
+            "charge_item": "THC",
+            "amount": 10,
+            "currency": "USD",
+            "payment_term": "PP",
+            "creditor": "$ENTITY",
+            "debtor": "Synthetic Customer",
+            "evidence": [
+              {
+                "source_id": "reg-lines",
+                "anchor": "table1",
+                "quote": "THC line A USD 10"
+              }
+            ]
+          },
+          {
+            "charge_id": "reg-lines-r2",
+            "source_id": "reg-lines",
+            "line_id": "r2",
+            "reference_no": "INV-reg-lines",
+            "document_type": "Invoice",
+            "issuer": "$ENTITY",
+            "recipient": "Synthetic Customer",
+            "charge_item": "THC",
+            "amount": 20,
+            "currency": "USD",
+            "payment_term": "PP",
+            "creditor": "$ENTITY",
+            "debtor": "Synthetic Customer",
+            "evidence": [
+              {
+                "source_id": "reg-lines",
+                "anchor": "table1",
+                "quote": "THC line B USD 20"
+              }
+            ]
+          }
+        ],
+        "sources": [
+          {
+            "source_id": "reg-lines",
+            "name": "reg-lines",
+            "status": "ready",
+            "blocks": [
+              {
+                "anchor": "table1",
+                "text": "THC line A USD 10\nTHC line B USD 20",
+                "authoritative": true
+              }
+            ]
+          }
+        ]
+      },
+      "reference_outputs": {
+        "records": [
+          {
+            "operation": "CREATE",
+            "source_id": "reg-lines",
+            "line_id": "r1",
+            "charge_details": {
+              "charge_item": "Terminal Handling Charge",
+              "amount": 10,
+              "currency": "USD",
+              "payment_term": null
+            },
+            "financial_attributes": {
+              "accounting_entity": "$ENTITY",
+              "posting_type": "AR"
+            },
+            "document_info": {
+              "reference_no": "INV-reg-lines"
+            }
+          },
+          {
+            "operation": "CREATE",
+            "source_id": "reg-lines",
+            "line_id": "r2",
+            "charge_details": {
+              "charge_item": "Terminal Handling Charge",
+              "amount": 20,
+              "currency": "USD",
+              "payment_term": null
+            },
+            "financial_attributes": {
+              "accounting_entity": "$ENTITY",
+              "posting_type": "AR"
+            },
+            "document_info": {
+              "reference_no": "INV-reg-lines"
+            }
+          }
+        ],
+        "evidence_valid": true,
+        "amount_valid": true
+      }
+    },
+    {
+      "case_id": "reg-update",
+      "family_id": "synthetic-email-amount-amendment",
+      "dataset_role": "regression",
+      "inputs": {
+        "revision": 1,
+        "accounting_entity": "$ENTITY",
+        "existing_records": [
+          {
+            "charge_id": "existing-1",
+            "source_id": "reg-update",
+            "line_id": "r1",
+            "reference_no": "INV-reg-update",
+            "document_type": "Invoice",
+            "issuer": "$ENTITY",
+            "recipient": "Synthetic Customer",
+            "charge_item": "Handling Fee",
+            "amount": 80,
+            "currency": "USD",
+            "payment_term": "CC",
+            "creditor": "$ENTITY",
+            "debtor": "Synthetic Customer",
+            "evidence": []
+          }
+        ],
+        "charges": [
+          {
+            "charge_id": "reg-update-r1",
+            "source_id": "reg-update",
+            "line_id": "r1",
+            "reference_no": "INV-reg-update",
+            "document_type": "Invoice",
+            "issuer": "$ENTITY",
+            "recipient": "Synthetic Customer",
+            "charge_item": "Handling Fee",
+            "amount": 120,
+            "currency": "USD",
+            "payment_term": "PP",
+            "creditor": "$ENTITY",
+            "debtor": "Synthetic Customer",
+            "evidence": [
+              {
+                "source_id": "reg-update",
+                "anchor": "table1",
+                "quote": "Handling Fee USD 120"
+              }
+            ]
+          }
+        ],
+        "sources": [
+          {
+            "source_id": "reg-update",
+            "name": "reg-update",
+            "status": "ready",
+            "blocks": [
+              {
+                "anchor": "table1",
+                "text": "Handling Fee USD 120",
+                "authoritative": true
+              }
+            ]
+          }
+        ],
+        "update_instructions": [
+          {
+            "target_id": "existing-1",
+            "changes": {
+              "amount": 120
+            }
+          }
+        ]
+      },
+      "reference_outputs": {
+        "records": [
+          {
+            "operation": "UPDATE",
+            "source_id": "reg-update",
+            "line_id": "r1",
+            "charge_details": {
+              "charge_item": "Handling Charge",
+              "amount": 120,
+              "currency": "USD",
+              "payment_term": "CC"
+            },
+            "financial_attributes": {
+              "accounting_entity": "$ENTITY",
+              "posting_type": "AR"
+            },
+            "document_info": {
+              "reference_no": "INV-reg-update"
+            }
+          }
+        ],
+        "evidence_valid": true,
+        "amount_valid": true
+      }
+    },
+    {
+      "case_id": "reg-evidence",
+      "family_id": "synthetic-unreadable-receipt",
+      "dataset_role": "regression",
+      "inputs": {
+        "revision": 1,
+        "accounting_entity": "$ENTITY",
+        "existing_records": [],
+        "charges": [
+          {
+            "charge_id": "reg-evidence-r1",
+            "source_id": "reg-evidence",
+            "line_id": "r1",
+            "reference_no": "INV-reg-evidence",
+            "document_type": "Invoice",
+            "issuer": "$ENTITY",
+            "recipient": "Synthetic Customer",
+            "charge_item": "Storage Fee",
+            "amount": 10,
+            "currency": "USD",
+            "payment_term": "PP",
+            "creditor": "$ENTITY",
+            "debtor": "Synthetic Customer",
+            "evidence": [
+              {
+                "source_id": "reg-evidence",
+                "anchor": "table1",
+                "quote": "THIS DOES NOT OCCUR"
+              }
+            ]
+          }
+        ],
+        "sources": [
+          {
+            "source_id": "reg-evidence",
+            "name": "reg-evidence",
+            "status": "ready",
+            "blocks": [
+              {
+                "anchor": "table1",
+                "text": "Storage Fee USD 10",
+                "authoritative": true
+              }
+            ]
+          }
+        ]
+      },
+      "reference_outputs": {
+        "records": [
+          {
+            "operation": "PENDING_REVIEW",
+            "source_id": "reg-evidence",
+            "line_id": "r1",
+            "charge_details": {
+              "charge_item": "Storage Charge",
+              "amount": 10,
+              "currency": "USD",
+              "payment_term": null
+            },
+            "financial_attributes": {
+              "accounting_entity": "$ENTITY",
+              "posting_type": "AR"
+            },
+            "document_info": {
+              "reference_no": "INV-reg-evidence"
+            }
+          }
+        ],
+        "evidence_valid": false,
+        "amount_valid": true
+      }
+    },
+    {
+      "case_id": "reg-arithmetic",
+      "family_id": "synthetic-arithmetic-check",
+      "dataset_role": "regression",
+      "inputs": {
+        "revision": 1,
+        "accounting_entity": "$ENTITY",
+        "existing_records": [],
+        "charges": [
+          {
+            "charge_id": "reg-arithmetic-r1",
+            "source_id": "reg-arithmetic",
+            "line_id": "r1",
+            "reference_no": "INV-reg-arithmetic",
+            "document_type": "Invoice",
+            "issuer": "$ENTITY",
+            "recipient": "Synthetic Customer",
+            "charge_item": "Doc Fee",
+            "amount": 15,
+            "currency": "USD",
+            "payment_term": "PP",
+            "creditor": "$ENTITY",
+            "debtor": "Synthetic Customer",
+            "evidence": [
+              {
+                "source_id": "reg-arithmetic",
+                "anchor": "table1",
+                "quote": "Doc Fee USD 15"
+              }
+            ],
+            "quantity": 2,
+            "unit_price": 10
+          }
+        ],
+        "sources": [
+          {
+            "source_id": "reg-arithmetic",
+            "name": "reg-arithmetic",
+            "status": "ready",
+            "blocks": [
+              {
+                "anchor": "table1",
+                "text": "Doc Fee USD 15",
+                "authoritative": true
+              }
+            ]
+          }
+        ]
+      },
+      "reference_outputs": {
+        "records": [
+          {
+            "operation": "PENDING_REVIEW",
+            "source_id": "reg-arithmetic",
+            "line_id": "r1",
+            "charge_details": {
+              "charge_item": "Documentation Fee",
+              "amount": 15,
+              "currency": "USD",
+              "payment_term": null
+            },
+            "financial_attributes": {
+              "accounting_entity": "$ENTITY",
+              "posting_type": "AR"
+            },
+            "document_info": {
+              "reference_no": "INV-reg-arithmetic"
+            }
+          }
+        ],
+        "evidence_valid": true,
+        "amount_valid": false
+      }
+    },
+    {
+      "case_id": "final-matching",
+      "family_id": "synthetic-statement-repeat",
+      "dataset_role": "final",
+      "inputs": {
+        "revision": 1,
+        "accounting_entity": "$ENTITY",
+        "existing_records": [
+          {
+            "charge_id": "old-doc-27",
+            "source_id": "final-matching",
+            "line_id": "r1",
+            "reference_no": "INV-final-matching",
+            "document_type": "Invoice",
+            "issuer": "$ENTITY",
+            "recipient": "Synthetic Customer",
+            "charge_item": "Documentation Fee",
+            "amount": 27,
+            "currency": "EUR",
+            "payment_term": "PP",
+            "creditor": "$ENTITY",
+            "debtor": "Synthetic Customer",
+            "evidence": []
+          }
+        ],
+        "charges": [
+          {
+            "charge_id": "final-matching-r1",
+            "source_id": "final-matching",
+            "line_id": "r1",
+            "reference_no": "INV-final-matching",
+            "document_type": "Invoice",
+            "issuer": "$ENTITY",
+            "recipient": "Synthetic Customer",
+            "charge_item": "Document Charge",
+            "amount": 27,
+            "currency": "EUR",
+            "payment_term": "PP",
+            "creditor": "$ENTITY",
+            "debtor": "Synthetic Customer",
+            "evidence": [
+              {
+                "source_id": "final-matching",
+                "anchor": "table1",
+                "quote": "Statement item DC: EUR 27"
+              }
+            ]
+          }
+        ],
+        "sources": [
+          {
+            "source_id": "final-matching",
+            "name": "final-matching",
+            "status": "ready",
+            "blocks": [
+              {
+                "anchor": "table1",
+                "text": "Statement item DC: EUR 27",
+                "authoritative": true
+              }
+            ]
+          }
+        ]
+      },
+      "reference_outputs": {
+        "records": [
+          {
+            "operation": "NO_CHANGE",
+            "source_id": "final-matching",
+            "line_id": "r1",
+            "charge_details": {
+              "charge_item": "Documentation Fee",
+              "amount": 27,
+              "currency": "EUR",
+              "payment_term": "PP"
+            },
+            "financial_attributes": {
+              "accounting_entity": "$ENTITY",
+              "posting_type": "AR"
+            },
+            "document_info": {
+              "reference_no": "INV-final-matching"
+            }
+          }
+        ],
+        "evidence_valid": true,
+        "amount_valid": true
+      }
+    },
+    {
+      "case_id": "final-payable",
+      "family_id": "synthetic-warehouse-payable",
+      "dataset_role": "final",
+      "inputs": {
+        "revision": 1,
+        "accounting_entity": "$ENTITY",
+        "existing_records": [],
+        "charges": [
+          {
+            "charge_id": "final-payable-r1",
+            "source_id": "final-payable",
+            "line_id": "r1",
+            "reference_no": "INV-final-payable",
+            "document_type": "Invoice",
+            "issuer": "Synthetic Port",
+            "recipient": "$ENTITY",
+            "charge_item": "Storage Fee",
+            "amount": 42,
+            "currency": "CNY",
+            "payment_term": "PP",
+            "creditor": "Synthetic Port",
+            "debtor": "$ENTITY",
+            "evidence": [
+              {
+                "source_id": "final-payable",
+                "anchor": "table1",
+                "quote": "Storage Fee CNY 42"
+              }
+            ]
+          }
+        ],
+        "sources": [
+          {
+            "source_id": "final-payable",
+            "name": "final-payable",
+            "status": "ready",
+            "blocks": [
+              {
+                "anchor": "table1",
+                "text": "Storage Fee CNY 42",
+                "authoritative": true
+              }
+            ]
+          }
+        ]
+      },
+      "reference_outputs": {
+        "records": [
+          {
+            "operation": "CREATE",
+            "source_id": "final-payable",
+            "line_id": "r1",
+            "charge_details": {
+              "charge_item": "Storage Charge",
+              "amount": 42,
+              "currency": "CNY",
+              "payment_term": null
+            },
+            "financial_attributes": {
+              "accounting_entity": "$ENTITY",
+              "posting_type": "AP"
+            },
+            "document_info": {
+              "reference_no": "INV-final-payable"
+            }
+          }
+        ],
+        "evidence_valid": true,
+        "amount_valid": true
+      }
+    }
+  ]
+}

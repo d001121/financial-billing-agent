@@ -1,0 +1,58 @@
+[
+  {
+    "operation": "CREATE",
+    "document_info": {
+      "document_type": "xlsx",
+      "reference_no": "DEMO-2026-001",
+      "document_date": "2026-10-21"
+    },
+    "transaction_party": {
+      "issuer": "Demo Logistics Ltd",
+      "recipient": "Demo Trading Ltd"
+    },
+    "charge_details": {
+      "charge_item": "Handling Charge",
+      "amount": 50,
+      "currency": "USD",
+      "payment_term": "PP"
+    },
+    "financial_attributes": {
+      "accounting_entity": "Demo Trading Ltd",
+      "posting_type": "AP"
+    },
+    "audit_trail": {
+      "ai_reasoning": [
+        "在调用方提供的旧账单范围中未找到匹配费用",
+        "当前主体为该笔费用债务人"
+      ]
+    }
+  },
+  {
+    "operation": "CREATE",
+    "document_info": {
+      "document_type": "xlsx",
+      "reference_no": "DEMO-2026-001",
+      "document_date": "2026-10-21"
+    },
+    "transaction_party": {
+      "issuer": "Demo Logistics Ltd",
+      "recipient": "Demo Trading Ltd"
+    },
+    "charge_details": {
+      "charge_item": "Documentation Fee",
+      "amount": 20,
+      "currency": "USD",
+      "payment_term": "PP"
+    },
+    "financial_attributes": {
+      "accounting_entity": "Demo Trading Ltd",
+      "posting_type": "AP"
+    },
+    "audit_trail": {
+      "ai_reasoning": [
+        "在调用方提供的旧账单范围中未找到匹配费用",
+        "当前主体为该笔费用债务人"
+      ]
+    }
+  }
+]

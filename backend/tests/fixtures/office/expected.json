@@ -1,0 +1,14 @@
+{
+  "synthetic": true,
+  "description": "Generated format fixtures, not exam answers",
+  "invoice": "DEMO-OFFICE-001",
+  "xlsx_amounts": [
+    50,
+    20
+  ],
+  "xlsx_total": 70,
+  "hidden_amount": 15,
+  "hidden_currency": "EUR",
+  "word_rows": 25,
+  "converter_version": "LibreOffice 26.8.1.1 bf6ef2662401c7d6dce671ab4deb26ee0af3a7c1"
+}

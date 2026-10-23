@@ -1,0 +1,26 @@
+version: 39
+skills:
+- name: document-intake
+  enabled: true
+  version: 1.8.0
+- name: document-extraction
+  enabled: true
+  version: 2.2.3
+- name: evidence-linking
+  enabled: true
+  version: 2.1.4
+- name: billing-reconciliation
+  enabled: true
+  version: 1.4.0
+- name: human-review
+  enabled: true
+  version: 2.0.7
+- name: billing-export
+  enabled: true
+  version: 1.0.0
+- name: feedback-improvement
+  enabled: true
+  version: 1.4.0
+- name: billing-confidence
+  enabled: true
+  version: 3.1.0

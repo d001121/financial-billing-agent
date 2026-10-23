@@ -1,0 +1,29 @@
+{
+  "name": "harbor-billing-workbench",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "typecheck": "vue-tsc -b"
+  },
+  "dependencies": {
+    "@langchain/core": "1.2.19",
+    "@langchain/vue": "1.2.5",
+    "@lucide/vue": "1.60.0",
+    "markdown-it": "14.3.3",
+    "pdfjs-dist": "6.4.299",
+    "vue": "3.5.44"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "14.1.2",
+    "@types/node": "22.19.15",
+    "@vitejs/plugin-vue": "6.0.10",
+    "prettier": "3.6.2",
+    "typescript": "5.9.3",
+    "vite": "8.3.4",
+    "vue-tsc": "3.3.13"
+  }
+}
