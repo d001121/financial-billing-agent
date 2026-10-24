@@ -23,14 +23,14 @@ function schedulePanelLayout() {
     const viewport = window.visualViewport;
     const height = viewport?.height || window.innerHeight;
     const headerBottom = document.querySelector('.topbar')?.getBoundingClientRect().bottom || 0;
-    const top = Math.max(headerBottom + 12, panel.getBoundingClientRect().top - (viewport?.offsetTop || 0));
+    // Use its document position so scrolling never stretches the panel or moves the composer.
+    const top = Math.max(headerBottom + 12, panel.getBoundingClientRect().top + window.scrollY);
     panelHeight.value = Math.max(Math.min(360, height - headerBottom - 24), height - top - 16);
   });
 }
 onMounted(() => {
   schedulePanelLayout();
   window.addEventListener('resize', schedulePanelLayout);
-  window.addEventListener('scroll', schedulePanelLayout, { passive: true });
   window.visualViewport?.addEventListener('resize', schedulePanelLayout);
   layoutObserver = new ResizeObserver(schedulePanelLayout);
   if (panelElement.value?.parentElement) layoutObserver.observe(panelElement.value.parentElement);
@@ -38,7 +38,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
   cancelAnimationFrame(layoutFrame); layoutObserver?.disconnect();
   window.removeEventListener('resize', schedulePanelLayout);
-  window.removeEventListener('scroll', schedulePanelLayout);
   window.visualViewport?.removeEventListener('resize', schedulePanelLayout);
 });
 const emit = defineEmits<{ refresh: []; rejoin: []; updated: [task: Task]; locate: [chargeId: string, field: string]; edit: [chargeId: string, field: string] }>();

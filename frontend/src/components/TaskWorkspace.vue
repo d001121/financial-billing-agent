@@ -1165,8 +1165,8 @@ async function exportResult(draft = false) {
 .bill-review-layout { display: grid; gap: 20px; min-width: 0; align-items: start; }
 .bill-review-layout > * { min-width: 0; }
 @media (min-width: 1160px) {
-  .bill-review-layout.has-assistant { grid-template-columns: minmax(0, 1fr) clamp(380px, 31vw, 560px); min-height: calc(100dvh - var(--ocean-height) - 24px); }
-  .bill-review-layout.has-assistant > .agent-panel { grid-column: 2; grid-row: 1; position: sticky; top: calc(var(--ocean-height) + 12px); }
+  .bill-review-layout.has-assistant { grid-template-columns: minmax(0, 1fr) clamp(380px, 31vw, 560px); }
+  .bill-review-layout.has-assistant > .agent-panel { grid-column: 2; grid-row: 1; }
   .bill-review-layout.has-assistant > .results-card { grid-column: 1; grid-row: 1; }
   .bill-review-layout.has-assistant .charges-table:not(.full-fields) { min-width: 640px; }
   .bill-review-layout.has-assistant .charges-table th,
