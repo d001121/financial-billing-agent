@@ -1,0 +1,18 @@
+{
+  "generation_requests": 5,
+  "saved_concepts": 3,
+  "initial_unretrievable": [
+    {
+      "name": "night-watch",
+      "id": "d76c172d7bc3af3e2e1720f6174e2ce8",
+      "query_http": 404
+    },
+    {
+      "name": "coastal-index",
+      "id": "295228c2c3b20cca72b457afc70d8db5",
+      "query_http": 404
+    }
+  ],
+  "billing_of_unretrievable_tasks": "unknown",
+  "recovery": "Each remaining concept was regenerated once, polled immediately until terminal status and downloaded. No further generation is running."
+}
