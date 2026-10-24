@@ -5,7 +5,7 @@
 | 阅读目的 | 文档 |
 | --- | --- |
 | 启动与演示 | [项目首页](../README.md) · [后端](../backend/README.md) · [前端](../frontend/README.md) |
-| 对照笔试题逐项理解方案 | [项目答辩](project-solution.md) · [PDF](../output/pdf/Harbor_项目方案与笔试答辩.pdf) |
+| 了解项目难点与贡献 | [项目说明](project-solution.md) · [笔试答辩PDF](../output/pdf/Harbor_项目方案与笔试答辩.pdf) |
 | 理解模块与执行边界 | [实现说明](implementation.md) · [Skill 与 Hook](skills-and-hooks.md) |
 | 环境、恢复与性能 | [便携环境](portable-environment.md) · [恢复](recovery.md) · [性能](performance.md) |
 | 核实证据与缺口 | [验收记录](acceptance.md) · [样本清单](sample-inventory.md) |
