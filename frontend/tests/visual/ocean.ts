@@ -28,7 +28,19 @@ const task = {
   conversation: [{ id: "demo-reply-1", kind: "chat", text: "文件费的金额和币种没有问题。", question: "", interrupt_id: "", revision: 1, state: "completed", at, anchor_message_id: "demo-ai-1", response_message_id: "demo-ai-2" }],
   bill: { id, material_count: 1, references: ["INV-DEMO-1024"], parties: ["Demo Shipping Ltd", "Demo Trading Ltd"], amounts: [{ amount: 100, currency: "USD" }], attention: [], materials: [{ source_id: "demo-source", name: "demo-invoice.txt", status: "completed" }] },
 };
-const tasks = [task, { ...task, id: "ocean-demo-finished", title: "合成历史账单", status: "approved", thread_id: null, created_at: "2026-10-23T09:00:00+08:00" }];
+const dataset = new URLSearchParams(window.location.search).get("dataset");
+const dailyCounts = [10, 18, 12, 23, 19, 26, 20];
+let fixtureIndex = 0;
+const folioTasks = dailyCounts.flatMap((count, day) => Array.from({ length: count }, (_, index) => {
+  const serial = fixtureIndex++;
+  const created = new Date(2026, 9, 18 + day, 7 + index % 13, index * 7 % 60).toISOString();
+  const entity = serial < 64 ? "Demo Maritime A" : serial < 104 ? "Demo Logistics B" : "Demo Trading C";
+  const status = [6,20,41,56,75,92,110,122].includes(serial) ? "waiting_input" : [12,67,120].includes(serial) ? "processing" : [32,89,118,125].includes(serial) ? "failed" : "completed";
+  return { ...task, id: `folio-demo-${serial}`, title: `INV-2026-${String(1018 + day)}-${String(500 + serial).padStart(4, '0')}.pdf`, accounting_entity: entity, status, thread_id: null,
+    created_at: created, updated_at: created, pending_questions: status === "waiting_input" ? ["请确认本次记账主体。"] : [],
+    bill: { ...task.bill, references: [`INV-2026-${String(1018 + day)}-${500 + serial}`], parties: ["Demo Shipping Ltd", entity] } };
+}));
+const tasks = dataset === "empty" ? [] : dataset === "folio" ? folioTasks : [task, { ...task, id: "ocean-demo-finished", title: "合成历史账单", status: "approved", thread_id: null, created_at: "2026-10-23T09:00:00+08:00" }];
 const confidence = {
   revision: 1, method: "offline-visual-fixture", calibrated: false, score: 80, band: "medium", blockers: [],
   summary: "离线合成界面数据，不代表实际提取或准确率。",

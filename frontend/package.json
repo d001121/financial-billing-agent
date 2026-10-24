@@ -13,6 +13,7 @@
     "@langchain/core": "1.2.19",
     "@langchain/vue": "1.2.5",
     "@lucide/vue": "1.60.0",
+    "echarts": "6.1.0",
     "markdown-it": "14.3.3",
     "pdfjs-dist": "6.4.299",
     "vue": "3.5.44"

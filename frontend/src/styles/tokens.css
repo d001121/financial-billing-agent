@@ -1,39 +1,35 @@
 :root {
   font-family: "Aptos", "PingFang SC", "Microsoft YaHei", sans-serif;
-  color: #203f47;
-  background: #f4f7f6;
+  color: #303b4b;
+  background: #f7f8fa;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --navy: #163c48;
-  --teal-700: #286e65;
-  --teal-800: #205b54;
-  --teal-50: #e8f1ee;
-  --canvas: #f4f7f6;
+  -webkit-font-smoothing: antialiased;
+  --navy: #2d4361;
+  --teal-700: #365d99;
+  --teal-800: #2b4d82;
+  --teal-50: #edf2fa;
+  --canvas: #f7f8fa;
   --surface: #fff;
-  --ink: #203f47;
-  --muted: #647c82;
-  --line: #dfe8e5;
-  --sidebar-surface: #edf3f1;
-  --section-tint: #f2f6f4;
-  --ocean-height: 100px;
+  --ink: #303b4b;
+  --muted: #818b99;
+  --line: #e3e7ee;
+  --sidebar-surface: #f4f6fa;
+  --section-tint: #f7f9fc;
+  --ocean-height: 62px;
   --primary: var(--teal-700);
   --primary-hover: var(--teal-800);
   --primary-soft: var(--teal-50);
-  --green: #168c6d;
-  --green-soft: #e8f7f1;
-  --amber: #a87117;
-  --amber-soft: #fff6e5;
-  --red: #c84f61;
-  --red-soft: #fff0f2;
-  --radius: 10px;
-  --shadow: 0 3px 18px #1d4e4304;
-  --harbor-sidebar-width: 200px;
+  --green: #508477;
+  --green-soft: #eef5f2;
+  --amber: #ac852c;
+  --amber-soft: #faf5e9;
+  --red: #b96268;
+  --red-soft: #faf0f1;
+  --radius: 7px;
+  --shadow: 0 2px 8px #24344b04;
+  --harbor-sidebar-width: 0px;
 }
-@media (max-width: 1150px) {
-  :root {
-    --harbor-sidebar-width: 184px;
-  }
-}
-@media (max-width: 800px) {
-  :root { --ocean-height: 76px; }
+@media (max-width: 760px) {
+  :root { --ocean-height: 62px; }
 }
