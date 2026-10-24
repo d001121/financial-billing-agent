@@ -1,0 +1,2 @@
+# Preserve generated PDF bytes and avoid local text diff drivers.
+output/pdf/*.pdf binary
