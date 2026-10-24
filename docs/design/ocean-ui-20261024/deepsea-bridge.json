@@ -1,0 +1,11 @@
+{
+  "endpoint": "/api/v1/images/generate",
+  "reference": "synthetic-reference.jpg",
+  "image_file": "deepsea-bridge.jpeg",
+  "status": "completed",
+  "completed_at": "2026-10-24T10:28:47.94919232+08:00",
+  "created_at": "2026-10-24T10:28:18.41819629+08:00",
+  "task_id": "d1a34b315a08af1f56d1752eb77892b2",
+  "prompt_file": "deepsea-bridge.txt",
+  "model": "gpt-image-2"
+}
