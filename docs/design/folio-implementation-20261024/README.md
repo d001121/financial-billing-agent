@@ -1,5 +1,7 @@
 # Folio 实现证据（合成数据）
 
+最新助手高度以用户确认的左右等高、正常文档流方案为准，见assistant-equal-height-desktop.png及根design-qa.md。历史detail截图中的按窗口扣高度仅保留迭代身份。
+
 最终核验见根目录design-qa.md。选择依据是../precision-ui-20261024/folio.jpg；后续用户明确要求海景融合并随页面滚动、日期可选、助手加宽/高度适配。
 
 最终视觉：desktop-1024-final.png、desktop-1440-final.png、dashboard-mobile.png、detail-desktop.png、detail-desktop-800h.png、detail-mobile.png、detail-scrolled.png。

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useChannelEffect, useStream } from '@langchain/vue';
 import { AIMessage, HumanMessage, ToolMessage, type BaseMessage } from '@langchain/core/messages';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue';
 import { Check, ChevronDown, CircleAlert, ListTodo, LoaderCircle, RefreshCw, Send, Sparkles } from '@lucide/vue';
 import { api, errorMessage } from '../api/client';
 import type { ConversationReply, Task, Todo } from '../types/contracts';
@@ -11,35 +11,6 @@ import AgentMessage from './AgentMessage.vue';
 import { mergeMessageProjections, toolLabel } from '../utils/agentActivity';
 
 const props = defineProps<{ task: Task; technical?: boolean; connectionEpoch?: number }>();
-const panelElement = ref<HTMLElement>();
-const panelHeight = ref<number>();
-let layoutFrame = 0;
-let layoutObserver: ResizeObserver | undefined;
-function schedulePanelLayout() {
-  cancelAnimationFrame(layoutFrame);
-  layoutFrame = requestAnimationFrame(() => {
-    const panel = panelElement.value;
-    if (!panel) return;
-    const viewport = window.visualViewport;
-    const height = viewport?.height || window.innerHeight;
-    const headerBottom = document.querySelector('.topbar')?.getBoundingClientRect().bottom || 0;
-    // Use its document position so scrolling never stretches the panel or moves the composer.
-    const top = Math.max(headerBottom + 12, panel.getBoundingClientRect().top + window.scrollY);
-    panelHeight.value = Math.max(Math.min(360, height - headerBottom - 24), height - top - 16);
-  });
-}
-onMounted(() => {
-  schedulePanelLayout();
-  window.addEventListener('resize', schedulePanelLayout);
-  window.visualViewport?.addEventListener('resize', schedulePanelLayout);
-  layoutObserver = new ResizeObserver(schedulePanelLayout);
-  if (panelElement.value?.parentElement) layoutObserver.observe(panelElement.value.parentElement);
-});
-onBeforeUnmount(() => {
-  cancelAnimationFrame(layoutFrame); layoutObserver?.disconnect();
-  window.removeEventListener('resize', schedulePanelLayout);
-  window.visualViewport?.removeEventListener('resize', schedulePanelLayout);
-});
 const emit = defineEmits<{ refresh: []; rejoin: []; updated: [task: Task]; locate: [chargeId: string, field: string]; edit: [chargeId: string, field: string] }>();
 interface AgentState { todos?: Todo[]; messages?: unknown[]; [key: string]: unknown }
 interface ReviewItem { charge_id: string; field: string; score: number; value?: unknown }
@@ -307,7 +278,7 @@ onBeforeUnmount(() => { void stream.disconnect(); });
 </script>
 
 <template>
-  <section ref="panelElement" class="card agent-panel" :style="panelHeight ? { height: `${panelHeight}px` } : undefined" aria-label="与账单助手的会话">
+  <section class="card agent-panel" aria-label="与账单助手的会话">
     <div class="card-head">
       <div class="flex"><span class="agent-symbol"><Sparkles :size="16" /></span><h3>账单助手</h3><span class="conversation-label">会话</span></div>
       <span class="conversation-status" role="status"><i v-if="isLoading || sending" class="activity-pulse" />{{ status }}</span>
@@ -381,7 +352,7 @@ onBeforeUnmount(() => { void stream.disconnect(); });
 .company-choices > span { display:block; color:var(--muted); font-size:11px; margin-bottom:8px; }
 .company-choices > div { display:flex; flex-wrap:wrap; gap:6px; max-height:115px; overflow:auto; }
 .company-choices button { color:var(--primary); background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:7px 10px; font-size:12px; text-align:left; white-space:normal; overflow-wrap:anywhere; }
-.agent-panel { overflow:hidden; min-width:0; height:calc(100dvh - var(--ocean-height) - 24px); display:flex; flex-direction:column; position:relative; }
+.agent-panel { overflow:hidden; min-width:0; height:clamp(360px, 70dvh, 720px); display:flex; flex-direction:column; position:relative; }
 .agent-panel > .card-head { flex-shrink:0; }
 .card-head { padding:8px 16px; border-bottom:1px solid var(--line); gap:8px; flex-wrap:wrap; }
 .card-head h3 { margin:0; font-size:13px; }
