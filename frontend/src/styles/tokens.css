@@ -16,7 +16,8 @@
   --line: #e3e7ee;
   --sidebar-surface: #f4f6fa;
   --section-tint: #f7f9fc;
-  --ocean-height: 62px;
+  --ocean-ribbon-height: 170px;
+  --ocean-height: 48px;
   --primary: var(--teal-700);
   --primary-hover: var(--teal-800);
   --primary-soft: var(--teal-50);
@@ -31,5 +32,5 @@
   --harbor-sidebar-width: 0px;
 }
 @media (max-width: 760px) {
-  :root { --ocean-height: 62px; }
+  :root { --ocean-ribbon-height: 140px; --ocean-height: 50px; }
 }

@@ -33,7 +33,7 @@ const dailyCounts = [10, 18, 12, 23, 19, 26, 20];
 let fixtureIndex = 0;
 const folioTasks = dailyCounts.flatMap((count, day) => Array.from({ length: count }, (_, index) => {
   const serial = fixtureIndex++;
-  const created = new Date(2026, 9, 18 + day, 7 + index % 13, index * 7 % 60).toISOString();
+  const created = new Date(2026, 9, 18 + day, day === 6 ? 7 + index % 5 : 7 + index % 13, index * 7 % 60).toISOString();
   const entity = serial < 64 ? "Demo Maritime A" : serial < 104 ? "Demo Logistics B" : "Demo Trading C";
   const status = [6,20,41,56,75,92,110,122].includes(serial) ? "waiting_input" : [12,67,120].includes(serial) ? "processing" : [32,89,118,125].includes(serial) ? "failed" : "completed";
   return { ...task, id: `folio-demo-${serial}`, title: `INV-2026-${String(1018 + day)}-${String(500 + serial).padStart(4, '0')}.pdf`, accounting_entity: entity, status, thread_id: null,

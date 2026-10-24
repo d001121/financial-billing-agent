@@ -777,7 +777,7 @@ h4 {
   color: var(--muted);
 }
 .evaluation-scores strong {
-  font-size: 23px;
+  font-size: 18px;
   font-weight: 600;
 }
 .evaluation-scores strong small {

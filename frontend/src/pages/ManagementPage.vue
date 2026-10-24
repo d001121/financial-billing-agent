@@ -166,10 +166,10 @@ const emit = defineEmits<{ navigate: [path: string] }>();
   justify-content: space-between;
   gap: 20px;
   align-items: flex-end;
-  margin-bottom: 28px;
+  margin-bottom: 16px;
 }
 .management-heading h1 {
-  font-size: 29px;
+  font-size: 20px;
   font-weight: 600;
   margin-top: 9px;
 }
@@ -185,14 +185,14 @@ const emit = defineEmits<{ navigate: [path: string] }>();
 .management-options {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 22px;
+  gap: 16px;
 }
 .management-card {
   display: block;
   background: white;
   border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 30px;
+  border-radius: 7px;
+  padding: 20px;
   color: var(--ink);
   text-decoration: none;
   position: relative;
@@ -201,18 +201,18 @@ const emit = defineEmits<{ navigate: [path: string] }>();
     border-color 0.2s;
 }
 .management-card:hover {
-  border-color: #a9cabc;
+  border-color: #b2c2da;
   box-shadow: 0 10px 35px #17352b07;
 }
 .setting-icon {
-  width: 46px;
-  height: 46px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
   color: var(--primary);
   background: var(--primary-soft);
-  border-radius: 12px;
-  margin-bottom: 28px;
+  border-radius: 7px;
+  margin-bottom: 16px;
 }
 .setting-icon.experience {
   background: #edf1f7;
@@ -224,7 +224,7 @@ const emit = defineEmits<{ navigate: [path: string] }>();
   letter-spacing: 1.5px;
 }
 .management-card h2 {
-  font-size: 23px;
+  font-size: 16px;
   margin: 8px 0 12px;
   letter-spacing: -0.5px;
 }
@@ -238,14 +238,14 @@ const emit = defineEmits<{ navigate: [path: string] }>();
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
-  margin: 25px 0 30px;
+  margin: 18px 0 20px;
 }
 .option-tags span {
   font-size: 11px;
   background: #f4f6f5;
   padding: 4px 9px;
   border-radius: 5px;
-  color: #657d77;
+  color: #6b7c94;
 }
 .option-open {
   display: flex;
@@ -260,9 +260,9 @@ const emit = defineEmits<{ navigate: [path: string] }>();
   display: flex;
   align-items: flex-start;
   gap: 13px;
-  background: #eaf0ee;
+  background: #f0f3f8;
   padding: 22px 26px;
-  border-radius: 12px;
+  border-radius: 7px;
   margin-top: 24px;
 }
 .management-notes > svg {
@@ -338,7 +338,7 @@ const emit = defineEmits<{ navigate: [path: string] }>();
     gap: 14px;
   }
   .management-heading h1 {
-    font-size: 26px;
+    font-size: 18px;
   }
   .management-options {
     grid-template-columns: 1fr;

@@ -314,8 +314,8 @@ async function submit() {
   line-height: 1.8;
 }
 .embedded-form .upload-zone {
-  background: #f5f9f6;
-  border-color: #b8d2c4;
+  background: #f4f7fc;
+  border-color: #c4d2e6;
   padding: 36px 18px;
 }
 .embedded-form .upload-zone > svg {
@@ -333,7 +333,7 @@ async function submit() {
 }
 .embedded-form .modal-foot {
   padding: 20px 28px;
-  background: #fafbf9;
+  background: #fafbfd;
 }
 .embedded-form .material-tabs button {
   font-size: 13px;
@@ -392,9 +392,9 @@ async function submit() {
   background: var(--primary-soft);
 }
 .upload-zone {
-  border: 1px dashed #c3d7ca;
+  border: 1px dashed #ccd7e7;
   border-radius: 11px;
-  background: #f7faf7;
+  background: #f7f9fc;
   padding: 27px;
   text-align: center;
   cursor: pointer;

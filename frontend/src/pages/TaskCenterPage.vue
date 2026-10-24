@@ -249,7 +249,7 @@ function changePage(delta: number) {
     <div v-if="reviewOnly" class="review-intro">
       <div class="intro-icon"><ClipboardCheck :size="25" /></div>
       <div class="intro-copy">
-        <span class="section-kicker">YOUR NEXT MOVE</span>
+        <span class="section-kicker">待办复核</span>
         <h1>
           {{
             loading
@@ -276,8 +276,7 @@ function changePage(delta: number) {
 
     <div v-else class="center-intro">
       <div>
-        <span class="section-kicker">BILLING CENTER</span>
-        <h1>所有账单，一处处理</h1>
+        <h1>账单业务中心</h1>
         <p>按账单查看提取结果、置信度与原件，按需修改后提交。</p>
       </div>
       <button class="primary create-task" @click="emit('create')">
@@ -582,12 +581,12 @@ function changePage(delta: number) {
 .selection-link { border:0; padding:6px 0; background:transparent; color:var(--teal); font-size:12px; }
 .selection-count { margin-left:auto; color:var(--subtle); font-size:12px; white-space:nowrap; }
 .delete-selected { color:#b94038; border-color:#edceca; background:#fff; font-size:12px; padding:8px 12px; }
-.operation-notice { display:flex; align-items:center; gap:8px; padding:12px 24px; margin:0; color:#116c51; background:#edf8f1; font-size:12px; }
+.operation-notice { display:flex; align-items:center; gap:8px; padding:12px 24px; margin:0; color:#116c51; background:#f4f7fc; font-size:12px; }
 .row-actions { display:flex; align-items:center; justify-content:flex-end; gap:7px; }
 .delete-task { padding:8px; border:0; color:#8a9691; background:transparent; flex-shrink:0; }
 .delete-task:hover:not(:disabled) { color:#b94038; background:#fff0ee; }
-.task-table tbody tr.row-selected { background:#edf6f2; }
-.task-table tbody tr.row-selected:hover { background:#e6f2ec; }
+.task-table tbody tr.row-selected { background:#edf2fa; }
+.task-table tbody tr.row-selected:hover { background:#e5edf9; }
 .delete-bills-dialog { width:min(480px,calc(100vw - 32px)); box-sizing:border-box; max-height:85dvh; overflow:auto; border:1px solid #e4e9e5; border-radius:18px; padding:26px; color:var(--ink); box-shadow:0 24px 80px #122d3438; }
 .delete-bills-dialog::backdrop { background:#15372d66; backdrop-filter:blur(3px); }
 .delete-dialog-heading { display:flex; align-items:center; justify-content:space-between; }
@@ -634,16 +633,16 @@ function changePage(delta: number) {
   overflow: hidden;
 }
 .task-center {
-  --navy: #183b48;
-  --teal: #0d7b72;
-  --subtle: #74868c;
+  --navy: #2d4361;
+  --teal: var(--primary);
+  --subtle: var(--muted);
 }
 .center-intro {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 20px;
-  margin: 2px 0 27px;
+  margin: 2px 0 18px;
 }
 .section-kicker {
   color: #6a898c;
@@ -652,9 +651,9 @@ function changePage(delta: number) {
   letter-spacing: 0.16em;
 }
 .center-intro h1 {
-  margin: 6px 0 9px;
+  margin: 2px 0 6px;
   color: var(--navy);
-  font-size: 29px;
+  font-size: 20px;
   font-weight: 650;
   letter-spacing: -0.05em;
 }
@@ -665,7 +664,7 @@ function changePage(delta: number) {
   font-size: 13px;
 }
 .create-task {
-  padding: 12px 19px;
+  padding: 8px 12px;
   white-space: nowrap;
 }
 .review-intro {
@@ -673,25 +672,25 @@ function changePage(delta: number) {
   align-items: center;
   gap: 18px;
   margin-bottom: 25px;
-  padding: 25px 28px;
-  background: #e8f2ef;
-  border: 1px solid #d6e7e1;
-  border-radius: 15px;
+  padding: 16px 18px;
+  background: #f3f6fa;
+  border: 1px solid #e1e7ef;
+  border-radius: 7px;
 }
 .intro-icon {
   display: grid;
   place-items: center;
-  width: 58px;
-  height: 58px;
-  color: #0e7469;
-  background: #d5e9e1;
-  border-radius: 15px;
+  width: 38px;
+  height: 38px;
+  color: #365d99;
+  background: #e8eef7;
+  border-radius: 7px;
   flex-shrink: 0;
 }
 .intro-copy h1 {
   margin: 5px 0 7px;
   font-size: 22px;
-  color: #194539;
+  color: #2d4361;
   letter-spacing: -0.03em;
 }
 .review-breakdown {
@@ -709,8 +708,8 @@ function changePage(delta: number) {
   gap: 3px;
 }
 .review-breakdown strong {
-  color: #20594c;
-  font-size: 27px;
+  color: #365d99;
+  font-size: 22px;
   font-weight: 600;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
@@ -723,21 +722,21 @@ function changePage(delta: number) {
 .list-surface {
   overflow: hidden;
   background: #fff;
-  border: 1px solid #e1e7e5;
-  border-radius: 15px;
+  border: 1px solid #e4e8ef;
+  border-radius: 7px;
   box-shadow: 0 5px 18px #102e2a03;
 }
 .list-tabs {
   display: flex;
   gap: 23px;
   padding: 0 24px;
-  border-bottom: 1px solid #e8eeeb;
+  border-bottom: 1px solid #e8ecf2;
   overflow-x: auto;
 }
 .list-tabs button {
-  padding: 19px 2px 17px;
+  padding: 12px 2px 10px;
   border: 0;
-  border-bottom: 3px solid transparent;
+  border-bottom: 2px solid transparent;
   border-radius: 0;
   background: none;
   color: #77878a;
@@ -746,31 +745,31 @@ function changePage(delta: number) {
   font-weight: 500;
 }
 .list-tabs button.chosen {
-  color: #156e64;
-  border-bottom-color: #167e71;
+  color: #365d99;
+  border-bottom-color: #365d99;
   font-weight: 650;
 }
 .list-tabs button:hover {
-  color: #156e64;
+  color: #365d99;
   background: none;
 }
 .list-tabs button span {
   min-width: 22px;
   padding: 1px 6px;
-  background: #f1f4f2;
+  background: #f2f4f7;
   border-radius: 5px;
   font-size: 11px;
   color: #7a8986;
 }
 .list-tabs button.chosen span {
-  color: #167466;
-  background: #e8f3ec;
+  color: #365d99;
+  background: #edf2fa;
 }
 .list-tools {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 20px 23px;
+  padding: 12px 16px;
 }
 .task-search {
   display: flex;
@@ -780,14 +779,14 @@ function changePage(delta: number) {
   gap: 9px;
   min-width: 170px;
   padding: 0 12px;
-  border: 1px solid #e1e7e5;
+  border: 1px solid #e4e8ef;
   border-radius: 8px;
   color: #7a8c8e;
   background: #fcfdfc;
 }
 .task-search:focus-within {
   border-color: #5c9c91;
-  box-shadow: 0 0 0 3px #0d7b7212;
+  box-shadow: 0 0 0 3px #365d9912;
 }
 .task-search input {
   padding: 10px 0;
@@ -816,7 +815,7 @@ function changePage(delta: number) {
   max-width: 230px;
   color: #7f8c88;
   padding: 0 10px;
-  border: 1px solid #e1e7e5;
+  border: 1px solid #e4e8ef;
   border-radius: 8px;
 }
 .filter-select select {
@@ -833,7 +832,7 @@ function changePage(delta: number) {
   width: auto;
   color: #687b77;
   padding: 10px 9px;
-  border-color: #e1e7e5;
+  border-color: #e4e8ef;
   font-size: 12px;
 }
 .stale-message {
@@ -883,7 +882,7 @@ function changePage(delta: number) {
   white-space: normal;
 }
 .task-table thead {
-  background: #f6f8f6;
+  background: #f8f9fb;
 }
 .task-table th {
   color: #83918c;
@@ -895,12 +894,12 @@ function changePage(delta: number) {
 }
 .task-table th:first-child,
 .task-table td:first-child {
-  padding-left: 24px;
+  padding-left: 16px;
 }
 .task-table td {
-  padding: 18px 16px;
+  padding: 12px 14px;
   border-bottom: 1px solid #edf0ed;
-  color: #4d625c;
+  color: #576273;
   font-size: 12px;
   vertical-align: middle;
 }
@@ -919,11 +918,11 @@ function changePage(delta: number) {
   display: grid;
   place-items: center;
   color: #6b8884;
-  background: #eef4f1;
-  border: 1px solid #e2ebe6;
-  border-radius: 10px;
-  width: 40px;
-  height: 44px;
+  background: #f1f4f9;
+  border: 1px solid #e3e8f0;
+  border-radius: 6px;
+  width: 30px;
+  height: 34px;
   flex-shrink: 0;
 }
 .document-mark.review {
@@ -951,7 +950,7 @@ function changePage(delta: number) {
   border: 0;
   border-radius: 3px;
   background: none;
-  color: #2b4740;
+  color: #3c4a5e;
   font-size: 13px;
   font-weight: 600;
   text-align: left;
@@ -1014,7 +1013,7 @@ function changePage(delta: number) {
   white-space: nowrap;
 }
 .count-cell strong {
-  color: #3c5951;
+  color: #45566e;
   font-size: 15px;
   font-weight: 550;
   font-variant-numeric: tabular-nums;
@@ -1047,20 +1046,20 @@ function changePage(delta: number) {
 }
 .open-task {
   padding: 7px 10px;
-  color: #48776d;
-  border: 1px solid #e0ebe6;
+  color: #526f99;
+  border: 1px solid #dce4f0;
   background: #fff;
   font-size: 11px;
   white-space: nowrap;
 }
 .open-task.review-action {
   color: #fff;
-  background: #167e70;
-  border-color: #167e70;
+  background: var(--primary);
+  border-color: var(--primary);
 }
 .open-task.review-action:hover {
-  background: #126859;
-  border-color: #126859;
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
 }
 .list-pagination {
   padding: 16px 24px;
@@ -1129,7 +1128,7 @@ function changePage(delta: number) {
 }
 .task-center button:focus-visible,
 .task-center select:focus-visible {
-  outline: 2px solid #0d7b72;
+  outline: 2px solid #365d99;
   outline-offset: 3px;
 }
 .sr-only {
@@ -1164,7 +1163,7 @@ function changePage(delta: number) {
 }
 @media (max-width: 900px) {
   .center-intro h1 {
-    font-size: 25px;
+    font-size: 20px;
   }
   .review-intro {
     flex-wrap: wrap;
@@ -1205,7 +1204,7 @@ function changePage(delta: number) {
     margin-bottom: 20px;
   }
   .center-intro h1 {
-    font-size: 24px;
+    font-size: 18px;
   }
   .center-intro p {
     font-size: 12px;

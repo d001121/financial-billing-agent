@@ -1165,8 +1165,8 @@ async function exportResult(draft = false) {
 .bill-review-layout { display: grid; gap: 20px; min-width: 0; align-items: start; }
 .bill-review-layout > * { min-width: 0; }
 @media (min-width: 1160px) {
-  .bill-review-layout.has-assistant { grid-template-columns: minmax(0, 1fr) 318px; }
-  .bill-review-layout.has-assistant > .agent-panel { grid-column: 2; grid-row: 1; }
+  .bill-review-layout.has-assistant { grid-template-columns: minmax(0, 1fr) clamp(380px, 31vw, 560px); min-height: calc(100dvh - var(--ocean-height) - 24px); }
+  .bill-review-layout.has-assistant > .agent-panel { grid-column: 2; grid-row: 1; position: sticky; top: calc(var(--ocean-height) + 12px); }
   .bill-review-layout.has-assistant > .results-card { grid-column: 1; grid-row: 1; }
   .bill-review-layout.has-assistant .charges-table:not(.full-fields) { min-width: 640px; }
   .bill-review-layout.has-assistant .charges-table th,
@@ -1352,7 +1352,7 @@ async function exportResult(draft = false) {
   gap: 28px;
   align-items: center;
   padding: 20px 22px;
-  background: #eef3ef;
+  background: #f1f4f9;
   border: 1px solid #e0e8e1;
   border-radius: 12px;
 }
@@ -1387,7 +1387,7 @@ async function exportResult(draft = false) {
 }
 .review-stat > strong,
 .review-stat > button {
-  font-size: 23px;
+  font-size: 18px;
   line-height: 1.2;
   display: flex;
   gap: 5px;
@@ -1412,7 +1412,7 @@ async function exportResult(draft = false) {
   color: var(--red);
 }
 .task-title h1 {
-  font-size: 20px;
+  font-size: 18px;
   letter-spacing: -0.5px;
   overflow-wrap: anywhere;
   line-height: 1.5;
@@ -1473,7 +1473,7 @@ async function exportResult(draft = false) {
   }
   .review-stat > strong,
   .review-stat > button {
-    font-size: 21px;
+    font-size: 18px;
   }
   .task-title h1 {
     font-size: 17px;
@@ -2108,11 +2108,11 @@ details .code-block {
   border-color: var(--section-border);
 }
 .task-workspace :deep(.agent-panel .agent-symbol) {
-  background: #e2ece5;
+  background: var(--line);
   color: var(--primary);
 }
 .task-workspace :deep(.agent-panel .conversation-footer) {
-  background: #f8faf8;
+  background: var(--section-tint);
 }
 .review-overview {
   background: var(--primary-soft);
@@ -2168,7 +2168,7 @@ details .code-block {
   color: var(--ink);
 }
 .charges-table th {
-  background: #f7f9f7;
+  background: #f7f9fc;
   color: #52665a;
   font-weight: 550;
 }
@@ -2176,21 +2176,21 @@ details .code-block {
   border-bottom-color: var(--line);
 }
 .charges-table tr.selected td {
-  background: #edf4ef;
+  background: var(--primary-soft);
 }
 .charges-table tr.selected td:first-child {
   box-shadow: inset 3px 0 var(--primary);
 }
 .charges-table tr:hover td {
-  background: #f3f7f4;
+  background: var(--section-tint);
 }
 .table-foot {
-  background: #fafbf9;
+  background: #fafbfd;
 }
 .bundle-materials {
   margin: 16px 18px;
   padding: 12px 14px;
-  background: #f8faf8;
+  background: var(--section-tint);
   border: 1px solid var(--section-border);
   border-radius: 8px;
 }
@@ -2207,7 +2207,7 @@ details .code-block {
   margin: 16px 18px 18px;
   border: 1px solid var(--section-border);
   border-radius: 10px;
-  background: #fafbf9;
+  background: #fafbfd;
   overflow: hidden;
 }
 .evidence-body {
@@ -2245,7 +2245,7 @@ details .code-block {
 }
 .review-evidence :deep(.confidence-heading),
 .review-evidence :deep(.confidence-note) {
-  background: #fafbf9;
+  background: #fafbfd;
 }
 .review-quotes {
   background: var(--surface);
@@ -2258,11 +2258,11 @@ details .code-block {
 }
 .review-quotes blockquote {
   color: #596b61;
-  background: #f5f8f5;
+  background: #f5f7fb;
   border-color: #afc4b6;
 }
 .evidence-source b {
-  background: #eef3ef;
+  background: #f1f4f9;
   color: #617568;
 }
 .reasoning {

@@ -27,9 +27,9 @@ onMounted(() => {
     return shader;
   };
   const vertex = compile(gl.VERTEX_SHADER, "attribute vec2 a; varying vec2 uv; void main(){uv=a*.5+.5;gl_Position=vec4(a,0.,1.);}");
-  const fragment = compile(gl.FRAGMENT_SHADER, `precision mediump float; uniform sampler2D photo; uniform float time; varying vec2 uv;
-    void main(){vec2 p=uv; float wave=sin(p.x*35.+time*.85)+sin(p.x*67.-time*1.2)*.4;
-    p.y=.56+(p.y-.5)*.30+wave*.027; p.x+=sin(p.y*34.+time*.65)*.003;
+  const fragment = compile(gl.FRAGMENT_SHADER, `precision mediump float; uniform sampler2D photo; uniform float time; uniform vec2 crop; varying vec2 uv;
+    void main(){vec2 p=(uv-.5)*crop+vec2(.5,.5+(1.-crop.y)*.06); float wave=sin(p.x*35.+time*.85)+sin(p.x*67.-time*1.2)*.4;
+    p.y+=wave*.012*crop.y; p.x+=sin(p.y*34.+time*.65)*.003*crop.x;
     gl_FragColor=vec4(texture2D(photo,p).rgb*.83,1.);}`);
   if (!vertex || !fragment) return;
   const program = gl.createProgram()!;
@@ -43,10 +43,15 @@ onMounted(() => {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   const timeUniform = gl.getUniformLocation(program, "time");
+  const cropUniform = gl.getUniformLocation(program, "crop");
   render = time => {
+    if (!ready.value) return;
     const width = Math.round(element.clientWidth * Math.min(devicePixelRatio, 1.5));
     const height = Math.round(element.clientHeight * Math.min(devicePixelRatio, 1.5));
     if (element.width !== width || element.height !== height) { element.width = width; element.height = height; gl.viewport(0, 0, width, height); }
+    // Match object-fit: cover without stretching the photograph at any viewport.
+    const aspect = width / Math.max(height, 1), photoAspect = 1600 / 240;
+    gl.uniform2f(cropUniform, Math.min(1, aspect / photoAspect) * .96, Math.min(1, photoAspect / aspect) * .96);
     gl.uniform1f(timeUniform, time / 1000); gl.drawArrays(gl.TRIANGLES, 0, 6);
   };
   const image = new Image();
@@ -58,8 +63,10 @@ onMounted(() => {
     ready.value = true; render?.(0); resume();
   };
   image.src = ocean;
+  const resize = new ResizeObserver(() => render?.(0));
+  resize.observe(element);
   document.addEventListener("visibilitychange", resume);
-  cleanup = () => { disposed = true; image.onload = null; document.removeEventListener("visibilitychange", resume); gl.deleteBuffer(buffer); gl.deleteTexture(texture); gl.deleteProgram(program); gl.deleteShader(vertex); gl.deleteShader(fragment); };
+  cleanup = () => { disposed = true; resize.disconnect(); image.onload = null; document.removeEventListener("visibilitychange", resume); gl.deleteBuffer(buffer); gl.deleteTexture(texture); gl.deleteProgram(program); gl.deleteShader(vertex); gl.deleteShader(fragment); };
 });
 onBeforeUnmount(() => { cancelAnimationFrame(frame); cleanup?.(); });
 </script>

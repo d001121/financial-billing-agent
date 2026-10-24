@@ -297,7 +297,7 @@ h4 {
   flex: 1;
 }
 .confidence-score {
-  font-size: 22px;
+  font-size: 18px;
   line-height: 1.2;
   color: var(--amber);
   font-variant-numeric: tabular-nums;

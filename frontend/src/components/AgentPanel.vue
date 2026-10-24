@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useChannelEffect, useStream } from '@langchain/vue';
 import { AIMessage, HumanMessage, ToolMessage, type BaseMessage } from '@langchain/core/messages';
-import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
 import { Check, ChevronDown, CircleAlert, ListTodo, LoaderCircle, RefreshCw, Send, Sparkles } from '@lucide/vue';
 import { api, errorMessage } from '../api/client';
 import type { ConversationReply, Task, Todo } from '../types/contracts';
@@ -11,6 +11,36 @@ import AgentMessage from './AgentMessage.vue';
 import { mergeMessageProjections, toolLabel } from '../utils/agentActivity';
 
 const props = defineProps<{ task: Task; technical?: boolean; connectionEpoch?: number }>();
+const panelElement = ref<HTMLElement>();
+const panelHeight = ref<number>();
+let layoutFrame = 0;
+let layoutObserver: ResizeObserver | undefined;
+function schedulePanelLayout() {
+  cancelAnimationFrame(layoutFrame);
+  layoutFrame = requestAnimationFrame(() => {
+    const panel = panelElement.value;
+    if (!panel) return;
+    const viewport = window.visualViewport;
+    const height = viewport?.height || window.innerHeight;
+    const headerBottom = document.querySelector('.topbar')?.getBoundingClientRect().bottom || 0;
+    const top = Math.max(headerBottom + 12, panel.getBoundingClientRect().top - (viewport?.offsetTop || 0));
+    panelHeight.value = Math.max(Math.min(360, height - headerBottom - 24), height - top - 16);
+  });
+}
+onMounted(() => {
+  schedulePanelLayout();
+  window.addEventListener('resize', schedulePanelLayout);
+  window.addEventListener('scroll', schedulePanelLayout, { passive: true });
+  window.visualViewport?.addEventListener('resize', schedulePanelLayout);
+  layoutObserver = new ResizeObserver(schedulePanelLayout);
+  if (panelElement.value?.parentElement) layoutObserver.observe(panelElement.value.parentElement);
+});
+onBeforeUnmount(() => {
+  cancelAnimationFrame(layoutFrame); layoutObserver?.disconnect();
+  window.removeEventListener('resize', schedulePanelLayout);
+  window.removeEventListener('scroll', schedulePanelLayout);
+  window.visualViewport?.removeEventListener('resize', schedulePanelLayout);
+});
 const emit = defineEmits<{ refresh: []; rejoin: []; updated: [task: Task]; locate: [chargeId: string, field: string]; edit: [chargeId: string, field: string] }>();
 interface AgentState { todos?: Todo[]; messages?: unknown[]; [key: string]: unknown }
 interface ReviewItem { charge_id: string; field: string; score: number; value?: unknown }
@@ -278,7 +308,7 @@ onBeforeUnmount(() => { void stream.disconnect(); });
 </script>
 
 <template>
-  <section class="card agent-panel" aria-label="与账单助手的会话">
+  <section ref="panelElement" class="card agent-panel" :style="panelHeight ? { height: `${panelHeight}px` } : undefined" aria-label="与账单助手的会话">
     <div class="card-head">
       <div class="flex"><span class="agent-symbol"><Sparkles :size="16" /></span><h3>账单助手</h3><span class="conversation-label">会话</span></div>
       <span class="conversation-status" role="status"><i v-if="isLoading || sending" class="activity-pulse" />{{ status }}</span>
@@ -352,11 +382,11 @@ onBeforeUnmount(() => { void stream.disconnect(); });
 .company-choices > span { display:block; color:var(--muted); font-size:11px; margin-bottom:8px; }
 .company-choices > div { display:flex; flex-wrap:wrap; gap:6px; max-height:115px; overflow:auto; }
 .company-choices button { color:var(--primary); background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:7px 10px; font-size:12px; text-align:left; white-space:normal; overflow-wrap:anywhere; }
-.agent-panel { overflow:hidden; min-width:0; height:min(480px, calc(100dvh - 180px)); min-height:360px; display:flex; flex-direction:column; position:relative; }
+.agent-panel { overflow:hidden; min-width:0; height:calc(100dvh - var(--ocean-height) - 24px); display:flex; flex-direction:column; position:relative; }
 .agent-panel > .card-head { flex-shrink:0; }
 .card-head { padding:8px 16px; border-bottom:1px solid var(--line); gap:8px; flex-wrap:wrap; }
 .card-head h3 { margin:0; font-size:13px; }
-.agent-symbol { display:grid; place-items:center; width:24px; height:24px; border-radius:7px; color:var(--primary); background:#edf3ef; }
+.agent-symbol { display:grid; place-items:center; width:24px; height:24px; border-radius:7px; color:var(--primary); background:var(--primary-soft); }
 .conversation-label { font-size:11px; color:var(--muted); padding-left:10px; border-left:1px solid var(--line); }
 .conversation-status { color:var(--muted); font-size:11px; display:flex; align-items:center; gap:7px; }
 .activity-pulse { width:6px; height:6px; border-radius:50%; background:var(--primary); animation:pulse 1.5s infinite; }
@@ -383,19 +413,19 @@ onBeforeUnmount(() => { void stream.disconnect(); });
 .conversation-footer { flex:0 0 auto; max-height:60%; overflow:auto; background:var(--surface); }
 .conversation-footer:has(.conversation-composer) { border-top:1px solid var(--line); padding-top:8px; }
 .latest-message { position:absolute; right:30px; bottom:12px; display:flex; align-items:center; gap:5px; padding:7px 12px; color:var(--primary); background:var(--surface); border:1px solid var(--line); border-radius:20px; box-shadow:0 2px 8px #183a2810; font-size:11px; }
-.conversation-composer { margin:0 16px 10px; border:1px solid #c9d9ce; border-radius:10px; background:var(--surface); box-shadow:0 2px 5px #183a2810; }
+.conversation-composer { margin:0 16px 10px; border:1px solid var(--line); border-radius:6px; background:var(--surface); box-shadow:0 2px 5px #183a2810; }
 .conversation-composer:focus-within { border-color:var(--primary); box-shadow:0 0 0 2px #3a715615; }
-.conversation-composer textarea { display:block; width:100%; resize:none; height:44px; min-height:44px; max-height:44px; border:0; box-shadow:none; background:transparent; padding:7px 12px 2px; font-family:inherit; font-size:13px; line-height:1.6; border-radius:10px; outline:none; }
+.conversation-composer textarea { display:block; width:100%; resize:none; height:44px; min-height:44px; max-height:44px; border:0; box-shadow:none; background:transparent; padding:7px 12px 2px; font-family:inherit; font-size:13px; line-height:1.6; border-radius:6px; outline:none; }
 .composer-actions { padding:2px 8px 6px 12px; display:flex; align-items:center; gap:8px; justify-content:space-between; }
 .composer-actions > span { color:var(--muted); font-size:10px; }
 .composer-actions button { flex-shrink:0; padding:5px 10px; font-size:12px; }
-.conversation-end { margin:0; padding:12px 24px; color:var(--muted); font-size:11px; background:#f8faf8; border-top:1px solid var(--line); }
+.conversation-end { margin:0; padding:12px 24px; color:var(--muted); font-size:11px; background:var(--section-tint); border-top:1px solid var(--line); }
 .connection-notice { display:flex; align-items:center; gap:8px; margin:0 24px 16px; padding:10px 12px; border:1px solid var(--line); border-radius:8px; color:var(--muted); font-size:12px; }
 .connection-notice > span { flex:1; }
 .native-details { padding:16px 24px; font-size:12px; }
 .native-details pre { max-height:240px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; }
 .sr-only { position:absolute; width:1px; height:1px; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); }
 @keyframes pulse {50% {opacity:.3}}
-@media(max-width:600px) { .agent-panel {height:min(440px, calc(100dvh - 120px));} .card-head {padding:8px 12px;} .conversation-body {padding:16px;} .conversation-composer {margin:0 12px 10px;} .assistant-question {padding-left:0;} .composer-actions {align-items:flex-end;} .composer-actions > span {max-width:145px;} .conversation-status {max-width:100%;} .connection-notice {margin:0 16px 16px; flex-wrap:wrap;} .latest-message {right:20px;} }
+@media(max-width:600px) { .card-head {padding:8px 12px;} .conversation-body {padding:16px;} .conversation-composer {margin:0 12px 10px;} .assistant-question {padding-left:0;} .composer-actions {align-items:flex-end;} .composer-actions > span {max-width:145px;} .conversation-status {max-width:100%;} .connection-notice {margin:0 16px 16px; flex-wrap:wrap;} .latest-message {right:20px;} }
 @media(prefers-reduced-motion:reduce) { .activity-pulse {animation:none;} }
 </style>

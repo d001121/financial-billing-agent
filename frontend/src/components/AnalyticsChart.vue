@@ -12,7 +12,10 @@ const emit = defineEmits<{ select: [value: { name: string; value: unknown }]; zo
 const root = ref<HTMLDivElement>();
 let chart: EChartsType | undefined;
 let resize: ResizeObserver | undefined;
-watch(() => props.option, value => chart?.setOption(value, { notMerge: true }));
+watch(() => props.option, (value, previous) => {
+  // Summary polling must not restart an unchanged chart or dismiss its tooltip.
+  if (JSON.stringify(value) !== JSON.stringify(previous)) chart?.setOption(value, { notMerge: true });
+});
 onMounted(() => {
   chart = init(root.value!, undefined, { renderer: "canvas" });
   chart.setOption(props.option);

@@ -376,7 +376,7 @@ onBeforeUnmount(() => {
   color: var(--muted);
 }
 .trace-metrics strong {
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
@@ -412,7 +412,7 @@ onBeforeUnmount(() => {
 .quality-strip strong {
   display: block;
   margin-top: 8px;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 500;
 }
 .quality-status {

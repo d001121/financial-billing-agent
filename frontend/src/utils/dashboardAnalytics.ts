@@ -12,16 +12,27 @@ export function localDay(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-/** Creation cohorts use current business status, never historical completion time. */
-export function dashboardAnalytics(tasks: Task[], days: number | null, now: Date) {
-  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+export interface DashboardDateRange { start: string; end: string }
+function parseLocalDay(value: string): Date {
+  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!parts) throw new RangeError("Invalid dashboard date");
+  const date = new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]));
+  if (localDay(date) !== value) throw new RangeError("Invalid dashboard date");
+  return date;
+}
+/** Creation cohorts use current business status, never historical completion time. Custom end is inclusive. */
+export function dashboardAnalytics(tasks: Task[], days: number | null | DashboardDateRange, now: Date) {
+  const custom = typeof days === "object" && days !== null ? days : null;
+  const end = custom ? parseLocalDay(custom.end) : new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  end.setDate(end.getDate() + 1);
   const dated = tasks.map(task => ({ task, date: new Date(task.created_at) }))
     .filter(row => Number.isFinite(row.date.getTime()));
-  const first = days === null
+  const first = custom ? parseLocalDay(custom.start).getTime() : days === null
     ? Math.min(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(), ...dated.map(row => row.date.getTime()))
-    : new Date(now.getFullYear(), now.getMonth(), now.getDate() - days + 1).getTime();
+    : new Date(now.getFullYear(), now.getMonth(), now.getDate() - (days as number) + 1).getTime();
   const start = new Date(first);
   start.setHours(0, 0, 0, 0);
+  if (start >= end) throw new RangeError("Dashboard start date must not follow end date");
   const included = dated.filter(row => row.date >= start && row.date < end);
   const counts: Record<TaskCategory, number> = { completed: 0, review: 0, active: 0, attention: 0 };
   const daily: { date: string; label: string; total: number; counts: Record<TaskCategory, number> }[] = [];

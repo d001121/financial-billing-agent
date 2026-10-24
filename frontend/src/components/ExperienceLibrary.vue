@@ -733,7 +733,7 @@ onMounted(load);
   font-weight: 650;
 }
 .intro-copy h2 {
-  font-size: 22px;
+  font-size: 18px;
   line-height: 1.4;
   margin: 7px 0;
 }
@@ -778,7 +778,7 @@ onMounted(load);
   color: var(--muted);
 }
 .library-stats dd {
-  font-size: 27px;
+  font-size: 22px;
   font-weight: 650;
   margin: 7px 0 0;
 }
@@ -1113,7 +1113,7 @@ onMounted(load);
   margin-left: 10px;
 }
 .experience-detail h2 {
-  font-size: 21px;
+  font-size: 16px;
   line-height: 1.5;
   margin: 20px 0;
 }

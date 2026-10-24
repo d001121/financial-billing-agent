@@ -41,3 +41,19 @@ test('all time and a window crossing a year retain calendar boundaries',()=>{
   const all=dashboardAnalytics(input,null,new Date(2026,0,2));
   assert.equal(all.start,'2025-12-31'); assert.equal(all.daily.length,3);
 });
+test('custom dates include the entire end day and filter all chart projections together',()=>{
+  const result=dashboardAnalytics([
+    task('before',new Date(2026,9,20,23,59)),task('start',new Date(2026,9,21,0)),
+    task('end',new Date(2026,9,23,23,59,59,999)),task('after',new Date(2026,9,24,0)),
+  ],{start:'2026-10-21',end:'2026-10-23'},now);
+  assert.deepEqual(result.tasks.map(t=>t.id),['start','end']);
+  assert.equal(result.daily.length,3); assert.equal(result.end,'2026-10-23');
+  assert.equal(result.counts.completed,2);
+  assert.equal(result.heat.reduce((sum,c)=>sum+c[2],0),2);
+});
+test('custom dates allow one day and reject reversed or impossible calendar dates',()=>{
+  assert.equal(dashboardAnalytics([], {start:'2026-10-24',end:'2026-10-24'}, now).daily.length,1);
+  for(const bounds of [{start:'2026-10-25',end:'2026-10-24'},{start:'2026-02-30',end:'2026-10-24'}]) {
+    assert.throws(()=>dashboardAnalytics([],bounds,now),RangeError);
+  }
+});

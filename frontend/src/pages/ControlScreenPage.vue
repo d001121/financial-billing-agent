@@ -5,11 +5,12 @@ import type { EChartsCoreOption } from "echarts/core";
 import AnalyticsChart from "../components/AnalyticsChart.vue";
 import { formatDate, taskStatusLabels, type Task } from "../types/contracts";
 import { taskCategory, taskTime, taskTitle, type TaskFilter } from "../utils/taskPresentation";
-import { dashboardAnalytics, dashboardStates, localDay } from "../utils/dashboardAnalytics";
+import { dashboardAnalytics, dashboardStates, localDay, type DashboardDateRange } from "../utils/dashboardAnalytics";
 
 const props = defineProps<{ tasks: Task[]; loading: boolean; stale: boolean; updatedAt: string; motionActive?: boolean }>();
 const emit = defineEmits<{ create: []; open: [task: Task]; filter: [filter: TaskFilter]; screen: []; exit: []; manage: [] }>();
 const range = ref("7");
+const customRange = ref<DashboardDateRange>();
 const kind = ref<"area" | "bar">("area");
 const breakdown = ref<"entities" | "status">("entities");
 const activeStatus = ref<TaskFilter>("all");
@@ -18,7 +19,7 @@ const dayFilter = ref("");
 const selectedId = ref("");
 let zoom = { start: 0, end: 100 };
 const unavailable = computed(() => props.loading || (props.stale && !props.updatedAt));
-const data = computed(() => dashboardAnalytics(props.tasks, range.value === "all" ? null : Number(range.value), new Date(props.updatedAt || Date.now())));
+const data = computed(() => dashboardAnalytics(props.tasks, range.value === "custom" && customRange.value ? customRange.value : range.value === "all" ? null : Number(range.value), new Date(props.updatedAt || Date.now())));
 const selected = computed(() => rows.value.find(task => task.id === selectedId.value));
 const rows = computed(() => data.value.tasks.filter(task =>
   (activeStatus.value === "all" || taskCategory(task) === activeStatus.value) &&
@@ -46,7 +47,7 @@ const mainOption = computed<EChartsCoreOption>(() => {
     xAxis: { type: "category", data: days.map(day => day.label), boundaryGap: kind.value === "bar", axisLine: { lineStyle: { color: "#e6e9ee" } }, axisTick: { show: false }, axisLabel: { margin: 13, color: "#78808d", fontSize: 10 } },
     yAxis: { type: "value", minInterval: 1, name: "账单数", nameTextStyle: { fontSize: 10, align: "left", padding: [0, 0, 0, -18] }, splitLine: { lineStyle: { color: "#e9edf2", type: "dashed" } }, axisLabel: { fontSize: 10 } },
     dataZoom: [{ type: "slider", start: zoom.start, end: zoom.end, height: 24, bottom: 13, left: 38, right: 40, borderColor: "#dde3ec", backgroundColor: "#fafbfc", fillerColor: "#365d9912", dataBackground: { lineStyle: { color: "#cad1dc" }, areaStyle: { color: "#dfe3e9" } }, selectedDataBackground: { lineStyle: { color: "#6f87ac" }, areaStyle: { color: "#b7c5da" } }, handleStyle: { color: "#fff", borderColor: "#7b92b5" }, moveHandleSize: 0, textStyle: { fontSize: 10 }, brushSelect: false }],
-    series: [ ...dashboardStates.map(state => ({ name: state.label, type: kind.value === "bar" ? "bar" : "line", stack: "current-status", data: days.map(day => day.counts[state.id]), itemStyle: { color: state.color }, lineStyle: { width: 0 }, areaStyle: { opacity: .78 }, symbol: "none", barMaxWidth: 32, emphasis: { focus: "series" } })),
+    series: [ ...dashboardStates.map(state => ({ name: state.label, type: kind.value === "bar" ? "bar" : "line", stack: "current-status", data: days.map(day => day.counts[state.id]), itemStyle: { color: state.color }, lineStyle: { width: 0 }, areaStyle: { opacity: .78 }, symbol: "none", barMaxWidth: 32, emphasis: { focus: "none" } })),
       { name: "总数", type: "line", data: days.map(day => day.total), lineStyle: { width: 1.7, color: "#2d518b" }, itemStyle: { color: "#2d518b" }, symbol: "circle", symbolSize: days.length > 31 ? 3 : 5, label: { show: days.length <= 14, position: "top", fontSize: 11, color: "#354052" },
         markLine: { symbol: "none", silent: true, label: { formatter: "日均 {c}", position: "insideEndTop", color: "#778190", fontSize: 10 }, lineStyle: { color: "#aab4c2", width: 1, type: "dashed" }, data: [{ yAxis: Number((data.value.tasks.length / Math.max(days.length, 1)).toFixed(1)) }] }, z: 5 },
     ], aria: { enabled: false },
@@ -83,13 +84,20 @@ function keepZoom(event: unknown) {
   if (typeof next.start === "number" && typeof next.end === "number") zoom = { start: next.start, end: next.end };
 }
 function resetRange() { dayFilter.value = ""; zoom = { start: 0, end: 100 }; }
+function changeDate(field: "start" | "end", event: Event) {
+  const input = event.target as HTMLInputElement;
+  if (!input.value || !input.validity.valid) { input.value = data.value[field]; return; }
+  customRange.value = { start: data.value.start, end: data.value.end, [field]: input.value };
+  range.value = "custom";
+  resetRange();
+}
 </script>
 
 <template>
   <section class="folio-dashboard" aria-label="账单分析">
     <div class="analysis-heading">
       <div class="analysis-title"><h1>账单分析</h1><span>全部工作空间 <span class="path-divider">/</span> 按创建时间</span></div>
-      <div class="analysis-controls"><span class="date-extent"><CalendarDays :size="14" />{{ data.start.replaceAll('-', '/') }} — {{ data.end.replaceAll('-', '/') }}</span><label class="range-select"><select v-model="range" aria-label="账单统计范围" @change="resetRange"><option value="7">近 7 天</option><option value="30">近 30 天</option><option value="all">全部时间</option></select><ChevronDown :size="12" /></label></div>
+      <div class="analysis-controls"><div class="date-extent"><CalendarDays :size="14" /><input type="date" aria-label="统计开始日期" :value="data.start" :max="data.end" @change="changeDate('start', $event)" /><span>—</span><input type="date" aria-label="统计结束日期" :value="data.end" :min="data.start" @change="changeDate('end', $event)" /></div><label class="range-select"><select v-model="range" aria-label="账单统计范围" @change="resetRange"><option value="7">近 7 天</option><option value="30">近 30 天</option><option value="all">全部时间</option><option v-if="range === 'custom'" value="custom">自定义</option></select><ChevronDown :size="12" /></label></div>
     </div>
     <div v-if="stale" class="notice warning" role="status">{{ updatedAt ? '同步中断，当前展示上次同步的数据。' : '暂时无法获取账单数据，请检查连接。' }}</div>
     <div class="folio-stats" aria-label="所选时段账单统计">
@@ -131,6 +139,9 @@ function resetRange() { dayFilter.value = ""; zoom = { start: 0, end: 100 }; }
 .path-divider { padding: 0 10px; color: #b6bbc4; }
 .analysis-controls { gap: 8px; }
 .date-extent { display: flex; align-items: center; gap: 8px; background: white; border: 1px solid #e4e7ec; border-radius: 5px; height: 30px; padding: 0 11px; color: #5b6471; font-size: 11px; font-variant-numeric: tabular-nums; }
+.date-extent input { width: 116px; min-width: 0; height: 28px; padding: 0; border: 0; border-radius: 0; background: transparent; color: inherit; font: inherit; box-shadow: none; color-scheme: light; }
+.date-extent input:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.date-extent input::-webkit-calendar-picker-indicator { cursor: pointer; opacity: .65; }
 .range-select { position: relative; }
 .range-select select { appearance: none; width: 96px; padding: 5px 24px 5px 10px; height: 30px; border-radius: 5px; font-size: 11px; }
 .range-select svg { position: absolute; right: 8px; top: 9px; pointer-events: none; color: #8a929c; }
@@ -176,7 +187,7 @@ function resetRange() { dayFilter.value = ""; zoom = { start: 0, end: 100 }; }
 .table-search input { padding: 0; font-size: 10px; height: 23px; border: 0; box-shadow: none; min-width: 0; }
 .table-search input:focus-visible { outline: none; }
 .table-search button { border: 0; padding: 0; }
-.recent-table-scroll { overflow-x: auto; }
+.recent-table-scroll { overflow-x: auto; position: relative; }
 .recent-table { border-collapse: collapse; width: 100%; table-layout: fixed; font-size: 11px; text-align: left; }
 .recent-table th { font-weight: 500; color: #7c8490; background: #fcfcfd; height: 29px; padding: 0 8px; border-bottom: 1px solid #eff1f5; white-space: nowrap; }
 .recent-table th:first-child { width: 31%; padding-left: 16px; }.recent-table th:nth-child(2) { width: 20%; }.recent-table th:nth-child(3) { width: 15%; }.recent-table th:nth-child(4) { width: 10%; }.recent-table th:nth-child(5) { width: 19%; }.recent-table th:last-child { width: 32px; }
@@ -205,6 +216,6 @@ function resetRange() { dayFilter.value = ""; zoom = { start: 0, end: 100 }; }
 .analysis-footer { font-size: 10px; color: #929aa5; padding: 2px 4px; margin-top: 0; }
 @media (min-width: 1550px) { .volume-chart { height: 370px; }.entity-chart { height: 192px; }.heat-chart { height: 242px; } }
 @media (max-width: 1050px) { .status-breakdown { gap: 14px; }.recent-table { min-width: 590px; }.analysis-title { gap: 14px; } }
-@media (max-width: 800px) { .analysis-title > span { display: none; } .breakdown-legend { grid-template-columns: repeat(2,1fr); } .analytics-layout { grid-template-columns: minmax(0,1fr); }.analytics-secondary { grid-template-columns: 1fr 1fr; }.analytics-note { grid-column: 1/-1; }.volume-chart { height: 300px; }.entity-chart { height: 202px; }.heat-chart { height: 192px; }.date-extent { display: none; } }
+@media (max-width: 800px) { .analysis-title > span { display: none; } .breakdown-legend { grid-template-columns: repeat(2,1fr); } .analytics-layout { grid-template-columns: minmax(0,1fr); }.analytics-secondary { grid-template-columns: 1fr 1fr; }.analytics-note { grid-column: 1/-1; }.volume-chart { height: 300px; }.entity-chart { height: 202px; }.heat-chart { height: 192px; }.analysis-heading { flex-wrap: wrap; gap: 10px; }.analysis-controls { flex-wrap: wrap; }.date-extent { gap: 5px; padding: 0 7px; }.date-extent input { width: 110px; } }
 @media (max-width: 500px) { .folio-dashboard { gap: 11px; }.analysis-title h1 { font-size: 17px; }.folio-stats { padding: 7px 0; }.folio-stats button { flex-direction: column; gap: 5px; height: 41px; padding: 0 3px; }.folio-stats button strong { font-size: 19px; }.folio-stats button > span { font-size: 9px; }.folio-stats button.selected::after { bottom: -7px; }.chart-heading { padding: 12px 12px 0; }.chart-heading h2 { font-size: 11px; }.chart-heading h2 span { font-size: 10px; }.chart-day-select { width: 64px; font-size: 9px; }.status-breakdown { padding: 10px 12px; gap: 12px; }.status-breakdown > span { font-size: 9px; }.breakdown-legend { gap: 8px; }.table-toolbar { padding-left: 12px; gap: 8px; flex-wrap: wrap; padding-bottom: 7px; }.table-tabs { height: 36px; }.table-search { width: 100%; }.analytics-secondary { grid-template-columns: minmax(0,1fr); }.analysis-footer { flex-wrap: wrap; gap: 4px; }.volume-chart { height: 270px; }.entity-chart { height: 180px; }.heat-chart { height: 215px; } }
 </style>

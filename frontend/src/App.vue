@@ -291,6 +291,7 @@ onBeforeUnmount(() => {
             <a href="#/tasks" :class="{active: ['tasks','detail'].includes(page)}" :aria-current="page === 'tasks' ? 'page' : undefined" @click="mobileNav = false"><FolderOpen/>账单业务中心</a>
             <a href="#/review" :class="{active: page === 'review'}" :aria-current="page === 'review' ? 'page' : undefined" @click="mobileNav = false"><ClipboardCheck/>待办复核<span v-if="reviewCount && !stale" class="nav-count">{{ reviewCount }}</span></a>
             <a href="#/screen" :class="{active: page === 'screen'}" :aria-current="page === 'screen' ? 'page' : undefined" @click="mobileNav = false"><Monitor/>大屏总控</a>
+            <a class="mobile-console-link" href="#/management" @click="mobileNav = false"><Settings2/>管理控制台</a>
           </template>
           <template v-else>
             <a href="#/management" :class="{active: page === 'management'}" @click="mobileNav = false"><LayoutDashboard/>控制台总览</a>
@@ -301,10 +302,10 @@ onBeforeUnmount(() => {
         </nav>
         <div class="topbar-actions"><button class="primary new-material" @click="navigate('/new')"><UploadCloud :size="14"/><span>提交新材料</span></button><button class="console-entry" @click="navigate(isManagement ? '/overview' : '/management')"><ArrowLeft v-if="isManagement" :size="14"/><Settings2 v-else :size="14"/><span>{{ isManagement ? '返回工作空间' : '管理控制台' }}</span></button><button class="motion-toggle" role="switch" aria-label="波光动效" :aria-checked="oceanMotion.active.value" :disabled="oceanMotion.reduced.value" :title="oceanMotion.reduced.value ? '跟随系统减少动态效果设置' : '开启或关闭海面动效与图表过渡'" @click="oceanMotion.enabled.value = !oceanMotion.enabled.value"><Waves :size="14"/><span>动效</span><i :class="{enabled: oceanMotion.active.value}"/></button><button class="icon ghost refresh-button" aria-label="刷新工作空间" title="刷新工作空间" :disabled="refreshing" @click="refresh()"><RefreshCw :size="14" :class="{'loading-icon': refreshing}"/></button><span :class="['service-indicator', {offline: !loading && (!health || stale)}]" :title="loading ? '正在连接' : health && !stale ? '服务已连接' : '连接异常'"><i/></span></div>
       </div>
-      <div class="ocean-ribbon"><OceanBackdrop :animated="oceanMotion.active.value"/></div>
     </header>
     <button v-if="mobileNav" class="nav-scrim" aria-label="关闭导航" @click="closeMobileNav"/>
     <div :class="['app-shell', {'admin-shell': isManagement}]">
+      <div class="ocean-ribbon" aria-hidden="true"><OceanBackdrop :animated="oceanMotion.active.value"/></div>
       <main
         id="workspace-main"
         tabindex="-1"
@@ -437,7 +438,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.app-shell { min-height: 100vh; padding-top: var(--ocean-height); }
+.app-shell { min-height: 100vh; padding-top: calc(var(--ocean-height) + 50px); position: relative; isolation: isolate; }
 .topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 60; background: #fff; box-shadow: 0 1px 4px #26364c0a; }
 .topbar-row { height: 48px; padding: 0 25px; display: flex; align-items: center; gap: 30px; border-bottom: 1px solid #e9ecf1; }
 .brand { display: flex; align-items: center; gap: 9px; color: #26374d; flex-shrink: 0; text-decoration: none; }
@@ -450,10 +451,11 @@ onBeforeUnmount(() => {
 .topbar-actions button { height: 29px; font-size: 11px; padding: 0 10px; gap: 6px; border-radius: 5px; white-space: nowrap; }.topbar-actions button svg { width: 14px; height: 14px; }.topbar-actions .primary { box-shadow: 0 2px 5px #365d991c; }
 .motion-toggle { color: #7c8797; border-color: #e7eaf0; }.motion-toggle i { display: block; width: 22px; height: 12px; background: #d2d8e0; border-radius: 8px; position: relative; transition: background 150ms; }.motion-toggle i::after { content:''; width: 8px; height: 8px; border-radius: 50%; background: #fff; position: absolute; top: 2px; left: 2px; transition: transform 150ms; }.motion-toggle i.enabled { background: #578579; }.motion-toggle i.enabled::after { transform: translateX(10px); }
 .topbar-actions .refresh-button { padding: 0 4px; width: 23px; }.service-indicator { display: flex; width: 5px; }.service-indicator i { display:block; width: 5px; height: 5px; border-radius: 50%; background: #709a8c; }.service-indicator.offline i { background: #c69062; }
-.ocean-ribbon { height: 14px; position: relative; overflow: hidden; background: #21394b; }
+.ocean-ribbon { height: var(--ocean-ribbon-height); position: absolute; top: var(--ocean-height); left: 0; right: 0; z-index: -1; overflow: hidden; opacity: .48; mask-image: linear-gradient(to bottom, #000 0%, #000b 28%, transparent 100%); }
+.ocean-ribbon::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #f7f8fa75, #f7f8fa08 75%); }
 main { padding: 18px 18px 14px; max-width: 1920px; margin: 0 auto; min-width: 0; outline: none; }
 .page-footer { display: flex; justify-content: space-between; margin-top: 22px; padding: 10px 0 0; border-top: 1px solid #e5e8ed; color: #949ca7; font-size: 10px; }.page-footer > span { display:flex; gap: 6px; align-items:center; }
-.mobile-menu { display: none; }.nav-scrim { position: fixed; inset: var(--ocean-height) 0 0; z-index: 48; border: 0; border-radius: 0; background: #1f304c33; }
+.mobile-menu,.top-navigation .mobile-console-link { display: none; }.nav-scrim { position: fixed; inset: var(--ocean-height) 0 0; z-index: 48; border: 0; border-radius: 0; background: #1f304c33; }
 .skip-link { position: fixed; top: -60px; left: 12px; z-index: 120; padding: 8px 12px; border-radius: 4px; background: white; color: #365d99; }.skip-link:focus { top: 8px; }
 .connection-notice { margin-bottom: 16px; }.detail-nav { display: flex; align-items: center; justify-content: space-between; margin: -5px 0 12px; color: #929aa7; font-size: 10px; }.detail-nav button { padding: 5px 0; font-size: 11px; }
 .page-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 16px; }.page-heading h1 { font-size: 20px; margin: 4px 0; }.page-heading p { font-size: 12px; color: var(--muted); }.page-heading button { font-size: 11px; }
@@ -465,6 +467,6 @@ main :deep(.card-head) { padding: 13px 16px; } main :deep(.card-body) { padding:
 main :deep(.card),main :deep(.panel) { border-radius: 7px; box-shadow: 0 2px 7px #26364b03; }
 @media (max-width: 1180px) { .topbar-row { gap: 18px; padding: 0 20px; }.top-navigation { gap: 1px; }.top-navigation a { padding: 0 8px; font-size: 11px; }.topbar-actions .console-entry svg,.topbar-actions .new-material svg { display: none; }.topbar-actions { gap: 5px; }.topbar-actions button { padding: 0 8px; }.brand em { display: none; } }
 @media (max-width: 900px) { .top-navigation a svg { display: none; }.topbar-actions .motion-toggle > span { display: none; }.topbar-row { gap: 12px; }.top-navigation a { padding: 0 7px; } main { padding: 18px 18px 14px; } }
-@media (max-width: 760px) { .topbar-row { height: 50px; padding: 0 14px; gap: 10px; }.brand strong { font-size: 13px; }.brand-mark { width: 23px; height: 23px; }.mobile-menu { display: inline-flex; padding: 5px; border-radius: 4px; }.mobile-menu svg { width: 16px; height: 16px; }.top-navigation { display: none; position: fixed; top: var(--ocean-height); left: 0; width: 225px; height: auto; background: white; padding: 12px; z-index: 70; border-right: 1px solid #e1e6ed; border-bottom: 1px solid #e1e6ed; box-shadow: 5px 10px 20px #24344b12; }.top-navigation.is-open { display: grid; }.top-navigation a { height: 41px; padding: 0 10px; }.top-navigation a svg { display: block; }.top-navigation a.active { background: #f1f4f9; }.top-navigation a.active::after { left: 0; top: 10px; bottom: 10px; width: 2px; height: auto; }.ocean-ribbon { height: 12px; }.topbar-actions .console-entry { display: none; }main { padding: 16px 12px 12px; }.submission-layout { grid-template-columns: minmax(0,1fr); }.submission-guide { padding: 0 8px; }.page-heading { align-items: flex-start; flex-direction: column; }.page-heading h1 { font-size: 18px; }.detail-nav > span { display: none; } }
+@media (max-width: 760px) { .topbar-row { height: 50px; padding: 0 14px; gap: 10px; }.brand strong { font-size: 13px; }.brand-mark { width: 23px; height: 23px; }.mobile-menu { display: inline-flex; padding: 5px; border-radius: 4px; }.mobile-menu svg { width: 16px; height: 16px; }.top-navigation { display: none; position: fixed; top: var(--ocean-height); left: 0; width: 225px; height: auto; background: white; padding: 12px; z-index: 70; border-right: 1px solid #e1e6ed; border-bottom: 1px solid #e1e6ed; box-shadow: 5px 10px 20px #24344b12; }.top-navigation.is-open { display: grid; }.top-navigation .mobile-console-link { display: flex; }.top-navigation a { height: 41px; padding: 0 10px; }.top-navigation a svg { display: block; }.top-navigation a.active { background: #f1f4f9; }.top-navigation a.active::after { left: 0; top: 10px; bottom: 10px; width: 2px; height: auto; }.ocean-ribbon { height: var(--ocean-ribbon-height); }.topbar-actions .console-entry { display: none; }main { padding: 16px 12px 12px; }.submission-layout { grid-template-columns: minmax(0,1fr); }.submission-guide { padding: 0 8px; }.page-heading { align-items: flex-start; flex-direction: column; }.page-heading h1 { font-size: 18px; }.detail-nav > span { display: none; } }
 @media (max-width: 380px) { .topbar-actions button { padding: 0 6px; }.topbar-actions .new-material { font-size: 10px; }.brand strong { font-size: 12px; }.topbar-row { gap: 6px; padding: 0 10px; }.topbar-actions .refresh-button { display: none; } }
 </style>
