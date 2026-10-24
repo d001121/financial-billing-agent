@@ -1,141 +1,137 @@
-# 航账 Harbor · 航运智能账单助手
+# 航账 Harbor
 
-从邮件、账单和附件提取费用，结合已有账单生成 CREATE / UPDATE / NO_CHANGE / PENDING_REVIEW 建议；保留来源证据，支持人工修订、审批与 JSON 导出。
+### 面向航运财务的证据驱动智能体
 
-采用 LangChain 主控、Deep Agents 文档专家和 Vue 工作台。项目内附 Windows x64 便携 Python 环境 bishi1，运行不需要 conda、系统 Python、Node.js 或 Codex 插件。
+**把多格式单据转化为可追溯、可修订、可审核的账单决策。**
+
+航账连接邮件、PDF、图片和 Office 表格，从当前记账主体出发提取费用，识别新增、更新、重复与冲突，输出符合题目约定的财务 JSON。模型负责理解材料与自主选择工具；领域代码负责证据、金额、匹配、版本和审批约束。
+
+项目基于 **Python / LangChain / LangGraph / Deep Agents / Vue / TypeScript**。当前交付定位为本机开发与演示系统，具有真实接口接入、历史局部闭环与定向验证记录；不以合成演示或历史测试代替最终独立业务验收。
+
+[项目方案与逐项答辩](docs/project-solution.md) · [PDF 阅读版](output/pdf/Harbor_项目方案与笔试答辩.pdf) · [文档导航](docs/README.md) · [验证记录](docs/acceptance.md)
+
+![航账工作台：合成数据，仅展示界面与交互](docs/design/folio-implementation-20261024/desktop-1440-final.png)
+
+## 三个工程支点
+
+| 支点 | 实现方式 | 解决的问题 |
+| --- | --- | --- |
+| **证据驱动决策** | 原件、来源身份、字段引用、位置与原值分别保留；模型引用 ref_id，宿主回读验证 | 避免“有结果却无法说明依据”，缺失字段不猜填 |
+| **有界自主执行** | 简单任务批读与直接核验；复杂疑点按需委派；共享预算、两轮修复、无进展停止与可恢复回合 | 减少机械委派和重复调用，避免无限循环与失败后无法继续 |
+| **版本化人工闭环** | 聊天修订与表单共用 Revision；重算相关字段、旧审批失效、正式导出检查当前版本 | 避免修改覆盖、旧审批沿用和未经核验的财务输出 |
+
+## 从材料到结果
+
+```mermaid
+flowchart LR
+  Input["EML / PDF / 图片 / Excel / Word"] --> Intake["格式读取 + 指定 OCR"]
+  Intake --> Evidence["可回读材料与来源证据"]
+  Evidence --> Agent["LangChain 自主主控"]
+  Agent -->|复杂疑点按需| Expert["Deep Agents 专家"]
+  Expert --> Agent
+  Agent --> Domain["八个业务 Skill + 十一类 Hook"]
+  History["同主体历史记录"] --> Domain
+  Domain --> Review["Revision / 人工修订 / 审批"]
+  Review --> Export["题面标准 JSON"]
+  Review -->|补充事实与局部修改| Agent
+```
+
+官方 Agent Server 管理运行与流式订阅，LangGraph 检查点保存执行状态；GaussDB 保存业务版本与回执，Redis 支撑运行投影与缓存，原始 OCR 成功响应另有内容寻址的磁盘缓存。Vue 工作台通过官方 SDK 展示消息、材料、费用、证据与待办。
+
+主控根据当前问题决定读哪里、是否需要专家以及如何解释冲突；计划与委派按需使用。保存提取结果默认完成一次确定性核对，简单任务无需额外调用 `prepare_export`。处理结束、校验通过和人工批准分别表示不同业务状态。
+
+## 对照笔试题的十项方案
+
+完整答辩逐项采用“**问题是什么 → 如何解决 → 为什么 → 更好的方案**”，并给出源码落点和验证范围。
+
+| 验收 | 当前方案 |
+| --- | --- |
+| [01 邮件解析](docs/project-solution.md#acceptance-01) | MIME 正文与附件递归接入；保留父子关系、重复出现身份及局部失败 |
+| [02 指定 OCR](docs/project-solution.md#acceptance-02) | 可下载 URL、固定请求契约、原始响应、页/帧映射与成功缓存 |
+| [03 Office 表格](docs/project-solution.md#acceptance-03) | 单元格与 OOXML 读取，公式/缓存区分，旧格式转换和血缘保留 |
+| [04 核心字段提取](docs/project-solution.md#acceptance-04) | 编号、费用、金额、币种按字段引用；Decimal 核验；不明值留 null |
+| [05 新增与更新](docs/project-solution.md#acceptance-05) | 自动历史检索、四级唯一匹配、明确更新授权与未改字段继承 |
+| [06 AR/AP](docs/project-solution.md#acceptance-06) | 从当前主体与真实债权债务关系判断，区分方向与 PP/CC 条款 |
+| [07 重复与冲突](docs/project-solution.md#acceptance-07) | 分开处理文件去重、费用身份、业务重复与跨来源矛盾 |
+| [08 Harness](docs/project-solution.md#acceptance-08) | 原生执行限制、共享请求预算、证据保护、停止/恢复与导出门禁 |
+| [09 补充思考](docs/project-solution.md#acceptance-09) | 缺失、条件费用、跨币种、更新授权、经验与性能等十项讨论 |
+| [10 工程交付](docs/project-solution.md#acceptance-10) | Python + LangChain、模块职责、依赖锁定、便携启动与私人 Git 仓库 |
+
+## 为什么采用 LLM + OCR
+
+题目明确要求 PDF、图片使用指定 OCR，并采用 Python 与 LangChain。因此主链路采用 **指定 OCR + 文本 LLM + 确定性核验**。保留可用文字层、表格结构和原图定位，避免把服务返回的业务 JSON 当作原件逐字全文。
+
+**VLM 是值得评估的增强方向。** 复杂表格、币种表头、扫描标注和错列信息依赖视觉布局，VLM 有机会改善纯 OCR 文本的缺口；本项目尚无独立 A/B 数据，不能宣称已测得具体提升。若约束允许，建议对疑难页一次复核全部相关字段，再与 OCR 和代码校验对照。项目已有 VLM 配置位置，当前财务主链路未启用自动 VLM 核验。
+
+我们推测题目也在考察长上下文与噪声处理，这是设计理解，而非出题方的明示要求。把所有 OCR、邮件头、条款、历史消息和工具返回反复送入模型，会增加成本、延迟和无关信息。当前采用以下方式组织上下文：
+
+- 短材料包一次批量读取；默认 32,000 **字符**阈值，不能当作 token 数。
+- 长材料先给清单，再通过原生检索与窗口读取扩读；保留截断提示与未读范围。
+- 原文外置并可回读，引用使用 ref_id；校验反馈去重压缩，完整报告仍保留。
+- 使用官方上下文编辑清理较早工具输出；不以模型改写后的摘要替代原始财务证据。
 
 ## 快速启动
 
-1. 确认backend/.env 中已有服务配置，并启动该配置指定的本机 Redis。
-2. 双击 **start.cmd**，等待 Agent Server 启动完成。
-3. 打开 **http://127.0.0.1:2024/app/**。健康检查：**http://127.0.0.1:2024/api/health**。
+1. 确认 `backend/.env` 已配置模型、数据库、Redis 及材料接入服务，启动其中指定的本机 Redis。
+2. 双击根目录 **start.cmd**，等待官方 Agent Server 启动。
+3. 打开 **http://127.0.0.1:2024/app/**；业务健康检查为 **http://127.0.0.1:2024/api/health**。
 
-启动入口根据自身目录定位解释器和项目。默认端口 2024，使用前确认端口空闲。当前是本机单实例开发/演示服务；本轮按职责重构后的项目外运行与历史状态核验以本轮报告为准。
+项目提供 Windows x64 便携 Python 环境，启动入口按自身位置定位。使用随项目已构建页面时，无须额外安装系统 Python、conda 或 Node.js；前端开发构建需要 Node.js。便携运行时、本机密钥和业务原件不会进入 Git，单独从源码克隆需按 [后端说明](backend/README.md) 准备环境。默认端口 2024，当前为本机单实例服务。
 
-## 先运行一个完整示例
+### 合成材料演示
 
-上传 backend/tests/fixtures/synthetic-invoice.xlsx，记账主体填写 **Demo Trading Ltd**，已有账单填写空数组。智能体实际规划、委派、提取和核对，预期产生两条 AP / CREATE：Handling Charge 50 USD、Documentation Fee 20 USD，合计 70 USD。
+上传 `backend/tests/fixtures/synthetic-invoice.xlsx`，当前记账主体填写 **Demo Trading Ltd**。在没有合格历史匹配的演示环境中，预期两笔 AP / CREATE：Handling Charge 50 USD、Documentation Fee 20 USD。工作台自动检索历史，同一合成材料重复运行可能形成 NO_CHANGE 或复核；调用方也可显式提供已有账单范围。
 
-在工作台查看证据和校验，批准当前版本后下载正式 JSON。已验收输出在 [examples/synthetic-bills.json](backend/examples/synthetic-bills.json)。该文件和 Excel 均为人工构造的合成数据。
+查看原文依据和校验结果，明确批准当前版本后导出 JSON。可将金额 50 改为 51，演示新 Revision、重算与旧审批失效；恢复正确金额后重新审核。历史合成输出见 [synthetic-bills.json](backend/examples/synthetic-bills.json)，它不是原题材料的真实提取结果。
 
-可把金额 50 改成 51：系统生成新 Revision，金额与合计校验会阻止正式导出；改回正确值后重新审核。两个浏览器同时编辑时，旧 Revision 提交返回 409 并保留表单输入。
+## Harness 与人工协作
 
-<details>
-<summary>查看实际工作台截图（合成材料）</summary>
+基础任务配置为 **24 次模型请求 / 64 次工具派发 / 1200 秒活跃时间**；初始 run 模型上限 16，单类专家每轮 4，给主控预留 2。子 Agent、重试等真实请求共用计量；明确人工新回合有有限增量，累计账本不会清零，自动续跑不无限增加额度。以上是执行上限，不是平均调用量或时延承诺。
 
-![已批准费用、原生计划、专家协作与来源证据](docs/images/workbench.png)
+纠错到限、同事实无进展或预算耗尽会停止新派发，保留候选、缺口和可恢复状态。修复不得无依据覆盖已有证据；停止不会被显示为核验通过。十一类 Hook 对正式导出检查 schema、coverage、evidence、amount、matching、update、posting、revision、approval、capability、budget。
 
-</details>
+聊天常驻，用户可以问问题或修改指定费用；旧待办独立提醒，不阻塞用户当前意图。原生 interrupt 回复、普通聊天、失败重试和已结束线程继续分别使用适当入口。无论聊天还是表单，修订后都要重新核验当前版本。
 
-用户提供的原题材料已接入样本列表。`backend/.env` 已按用户确认启用 `OBS_ENABLE=true`：缺少调用方URL时，document-intake通过华为官方SDK上传原件/附件/PDF切片并生成临时签名下载地址，再调用题面OCR。原题PNG与两份PDF已验证上传、签名下载哈希一致及OCR成功；新EML任务的正文、JPG和两份PDF共4来源均ready。
+### 可检索的纠错经验
 
-OCR实际返回结构化 `data.list`，保留响应原键值和来源引用，不冒充原件逐字全文。新EML正文 `H/C $50` 的币种及收费双方未明确，智能体已原生请求补充，正式导出返回422；未批准、0条正式records。附件服务返回空chargeList不等于证明没有费用。旧的待URL任务保留原快照和中断，新能力由新任务使用。真实请求与PNG响应回放的区分见 [验收记录](docs/acceptance.md)。
+进化库支持从账单生成 AI 经验草稿，自动关联来源、版本与主体；用户确认后，同主体新任务可通过本地 BM25 检索最多 3 条相关经验。**使用已确认经验** 总开关可关闭检索，单条经验可停用；运行中任务保留原版本快照。
 
-## 实际架构
+经验描述核对方法，不能替代当前材料的金额、币种或收付款事实。改变确定性费用映射须经过执行规则的评测、审核发布与回滚；参考经验不会自动修改财务规则或模型权重。详细使用流程见 [进化库记录](docs/research/experience-library-20261023.md)。
 
-~~~mermaid
-flowchart LR
-  Vue["Vue 工作台 / 官方 useStream"] --> Server["官方 Agent Server"]
-  Vue --> API["FastAPI 业务接口"]
-  Server --> Main["LangChain create_agent 主控"]
-  Main --> Todo["原生 Todo 计划"]
-  Main --> Experts["官方 SubAgent：文档 / 账单专家"]
-  Main --> Skills["官方 SkillsMiddleware / 工具绑定"]
-  Experts --> Skills
-  Skills --> Hooks["统一配置的十一类 Hook"]
-  API --> Hooks
-  Hooks --> Business["八个可移植业务 Skill"]
-  Business --> OCR["指定 OCR / 格式读取库"]
-  Server --> SQLite["官方 AsyncSqliteSaver"]
-  API --> DB["GaussDB：业务记录 / Revision / 回执"]
-  API --> Cache["Redis：解析缓存"]
-~~~
+## 工程结构
 
-主控根据材料、已有产物和校验问题调整原生 todos；最多两轮纠错。没有另建工作流 DAG、Agent runner、Skill 执行器或 SSE 服务。模型请求统一关闭思考，子 Agent、重试与实际模型 HTTP 请求共同计入任务预算。
+```text
+backend/
+  agents/             主控、文档专家、账单专家与工厂
+  middleware/         原生中间件组合、会话和工具边界
+  tools/ hooks/       领域工具绑定与十一类约束
+  harness/            共享预算、派发与停止控制
+  skills/             八个可迁移业务包
+  infrastructure/     模型、资产、仓储与检查点
+  api/ config/ mcp/   业务接口、配置与能力接入
+  tests/ evals/       定向检查、评测及合成样本
+frontend/             Vue + TypeScript + Vite 工作台
+docs/                 方案、架构、历史测量与验收记录
+output/pdf/           项目 PDF 阅读版
+start.cmd             Windows 启动入口
+```
 
-默认预算为 24 次模型请求、64 次工具派发、1200 秒活跃时间，独立文档并发 3。超限停止新派发并显示状态；图结束和 todos 全部完成不能代替业务校验。
+八个业务包依次为 document-intake、document-extraction、evidence-linking、billing-reconciliation、billing-confidence、human-review、billing-export、feedback-improvement。框架执行机制与财务算法分开，复杂外部能力可由 MCP 接入，任务固定 Skill 内容快照。
 
-## 项目目录
+Python 直接依赖与完整锁分别在 `backend/requirements.txt`、`backend/requirements.lock.txt`；前端使用 `frontend/package-lock.json`。项目锁定组合包括 LangChain 1.4.6、LangGraph 1.2.16、Deep Agents 0.7.30，升级需另行验证。
 
-~~~text
-笔试1/
-├─ backend/                      后端工程，也是 backend Python 包
-│  ├─ agents/                    supervisor / document / billing 专家与工厂
-│  ├─ middleware/                原生 middleware 组合与边界适配
-│  ├─ tools/                     上下文、人工输入、产物与 Skill 工具绑定
-│  ├─ hooks/                     十一类校验的注册与统一触发
-│  ├─ mcp/                       官方 MCP 连接和发现适配
-│  ├─ extensions/                能力快照与固定 Skill 版本
-│  ├─ harness/                   派发、共享预算与活跃计时
-│  ├─ api/                       应用装配及按职责分组的业务路由
-│  ├─ infrastructure/            模型、仓储、资产与官方检查点适配
-│  ├─ config/                    配置模型、校验、事务、提示词与 YAML
-│  ├─ skills/                    八个可插拔业务包
-│  ├─ tests/、evals/、examples/   宿主测试、评测、报告与示例
-│  ├─ data/                      样本、资产、固定版本和 SQLite
-│  ├─ scripts/、bishi1/           工程工具与便携 Python
-│  └─ .env、langgraph.json、依赖声明与启动入口
-├─ frontend/                     Vue + TypeScript + Vite
-├─ docs/                         架构、验收、题面与开发依据
-├─ delivery/                     既有交付产物，本轮暂不处理
-├─ AGENT.md、AGENTS.md            开发约定正文与入口
-└─ README.md、start.cmd           使用说明与启动入口
-~~~
+## 验证范围与交付边界
 
-## 扩展、人工与改进
+| 已有证据 | 可以说明什么 | 仍待验证 |
+| --- | --- | --- |
+| 指定 OCR 历史真实请求、OBS 上传与哈希核对 | 题面接口接入及真实响应契约可用 | 各文档家族识别准确率与规模性能 |
+| 单三页 PDF 冷 OCR 约 208.74 秒；缓存零网络回放约 0.88 秒 | 远程等待和成功响应复用是不同瓶颈 | 不是端到端提速倍数，也非平均时延 |
+| 历史真实模型、人工介入及局部导出记录 | 部分业务闭环有实际回执 | 最终独立金标、真实长材料、完整故障/并发矩阵 |
+| 两文件离线模拟链路 3 次模型 HTTP | 简单主控路径已精简 | 不是线上平均调用次数 |
+| 最新前端 21 项定向检查、类型检查与构建；合成布局验证 | 当前界面相关路径有局部验证 | 不是全量业务回归 |
 
-| 能力 | 当前实现 |
-| --- | --- |
-| 八个业务 Skill | document-intake、document-extraction、evidence-linking、billing-reconciliation、billing-confidence、human-review、billing-export、feedback-improvement；算法随包独立迁移 |
-| 十一类 Hook | schema、coverage、evidence、amount、matching、update、posting、revision、approval、capability、budget；正式导出强制检查 |
-| MCP | 内置 langchain.mcp；配置测试/发现、原生工具派发及实时禁用已验证 |
-| 子 Agent 与 Skill | 配置启停与注册；新任务固定内容哈希快照，在途任务保留版本，禁用在下次实际派发检查 |
-| 人工介入 | 原生 HITL、费用 set/delete/split、证据与主体修订、Revision 冲突、审批失效及重新计算 |
-| 跨任务改进 | 进化库支持AI总结、编辑确认和同主体经验检索；费用映射另走固定样例评测、审核发布和回滚 |
+较早第 4/8 项开发样本仅有 **2/4 包字段完全匹配**，其失败被用于修复；该成绩不能当作最终准确率。详细方法、版本和局限见 [项目报告](docs/project-solution.md)、[验收记录](docs/acceptance.md) 与 [研究目录](docs/research/)。
 
-运行中任务不会自动切换到新 Skill 指令。添加工具需同时提供有效的 Skill 与工具配置；Skill 文本不能自行获得本机 shell 权限。远端 MCP 原地修改实现的边界见扩展文档。
+本轮仅更新文档与生成 PDF，没有新增真实模型/OCR调用、没有运行全量测试、没有启停后端。实际开发应按改动范围选择离线检查；真实调用须遵守用户预算授权。外部财务正式入账、生产 SLA、权限体系和 VLM 增强仍属于进一步工作。
 
-## 用进化库沉淀一次纠错
-
-进化库顶部的 **使用已确认经验** 是总开关，默认开启。关闭后新任务不载入经验，已有任务再次检索也不会返回经验；草稿整理、卡片保存和单条停用仍可使用。设置刷新后保留。已进入模型上下文的参考无法撤回；重新开启时，已有任务仍只使用各自原快照中的经验，不自动加入新卡片。此开关不影响“执行规则”的费用映射。
-
-1. 在账单详情完成核对或修改，点击 **总结这次纠错**；也可从管理员控制台的 **进化库 → 参考经验** 选择来源账单。
-2. 可选填一句希望AI记住的内容，点击 **生成经验草稿**。AI生成问题、适用情况、处理建议、不适用情况和检索词；来源账单、版本和记账主体自动绑定。
-3. 核对卡片，需要时点击 **修改内容**。勾选确认后点击 **确认入库，供新任务参考**。来源账单没有记账主体时只能留作草稿，补充主体后重新总结。
-4. 后续同主体的新任务遇到具体疑点时，可以通过 `search_reviewed_experiences` 检索最多3条经验。卡片展示实际被哪些任务检索过；该记录不等于模型采纳，也不表示正确率提高。可随时停用，修改后须重新确认。
-
-每次生成最多1次模型HTTP请求，无自动付费重试；同输入成功后复用，失败时显示手动重试。检索使用本地BM25，不调用模型或向量服务。经验只提供核对方法，当前材料没有的金额、币种、单号、付款方式和AR/AP仍须留空。运行中任务固定已有经验版本，不自动读取后来新增内容；停用会阻止后续检索，不能撤回已进入上下文的内容。
-
-需要改变费用标准名等确定性执行行为时，使用 **执行规则** 页签，继续经过既有评测与审核发布。参考经验不会自动修改财务规则或模型权重。
-
-## 验证与开发
-
-2026-10-23进化库源码已完成，小范围离线检查 **27 passed**，Vue类型检查及生产构建通过，合成界面验证草稿、确认入库、停用及原有规则入口。未调用真实模型/OCR、未跑全量、未连接正式数据库验证新接口，未启动或重启正式后端。最终检查发现2024已有09:09启动的进程，本次源码尚未由它加载。操作流程、计费边界与限制见[进化库记录](docs/research/experience-library-20261023.md)。
-
-2026-10-23第4/8项的源码修复、MCP/22个项目Skills和真实开发测量见[本轮记录](docs/research/extraction-harness-4-8-20261023.md)。最终少量离线定向检查18项通过；较早在线开发测量2/4完全匹配，修复后未重跑在线、未做独立人工金标，也未重启正式服务。按用户预算要求不再跑全量或批量真实模型测试。
-
-原件评测入口默认离线：`.\backend\python.cmd -m backend.evals.original_extraction --case png-debit-invoice --prepare-only`。它校验原件与历史真实OCR响应哈希并回放解析；不会请求真实OCR或模型。实际模型入口必须显式使用`--online-model`并仅选一个`--case`，不得将离线结果称作在线验收。
-
-命令均从仓库根目录执行；后端单独使用说明见 [backend/README.md](backend/README.md)，前端开发见 [frontend/README.md](frontend/README.md)。
-
-~~~powershell
-.\backend\python.cmd -m pip check
-.\backend\python.cmd -m pytest -q backend/tests backend/skills
-
-# 前端重新开发/构建时才需要 Node.js
-cd frontend
-npm ci
-npm run build
-~~~
-
-Python 直接依赖在 `backend/requirements.txt`，完整锁文件为 `backend/requirements.lock.txt`；前端锁文件为 `frontend/package-lock.json`。所有业务 Skill 均可在宿主外通过自身 CLI 接收 JSON；具体输入/输出与依赖见各自 SKILL.md。
-
-此前真实 Qwen、GaussDB、Redis、官方 Server 和 Vue 生产页已联调，合成 Excel 完成真实模型到人工审批、正式导出，OBS 与指定 OCR 完成原题基础接入；这些历史结果及旧目录迁移仅覆盖原验收版本。本轮职责重构全量回归 **163 passed、43 warnings、4 subtests passed（68.90秒）**；后续配置修复 **40 passed（28.73秒）**。项目外运行时与pip check通过，官方服务四HTTP全200，三个历史任务及原中断保留。证据为 `backend/tests/reports/responsibility-tests.txt`、`responsibility-configuration-tests.txt`、`responsibility-runtime.json` 和 `responsibility-after.json`。详细范围见 [验收记录](docs/acceptance.md)、[恢复说明](docs/recovery.md) 和 [性能记录](docs/performance.md)。
-
-旧 DOC/XLS 已通过项目内 LibreOffice 实际转换；`DOC_CONVERTER` 相对后端根目录解析。Excel 公式缺缓存时重算，Word 提供绑定渲染哈希的 PDF 与内容锚点预览。验证使用明确标注的合成 OLE 文件，移机验证留待交付阶段。长 PDF / 跨页 Word 已有合成合同测试，尚不能据此声称原题长材料准确率或时延达标。最终独立真实金标评测未完成。
-
-## 当前开发阶段
-
-本轮按智能体职责重构后端：`backend/` 直接作为 Python 包，官方入口保持 `backend.agents:make_graph` 和 `backend.api:app`。八个业务 Skill 保留独立包结构，框架装配、工具绑定、校验、版本管理和基础设施各自归位。用户已明确先完成需求，本轮不制作或更新交付包；既有 ZIP、哈希和迁移记录继续保留历史身份。
-
-开发前阅读 [AGENT.md](AGENT.md)，然后查看 [文档导航](docs/README.md) 与 [T01–T33 实施状态](docs/superpowers/plans/2026-10-21-final-development-plan.md)。[补充思考](docs/insights.md)说明业务依据、已实现边界及后续方向。材料仅按本次授权上传至指定 OBS 并交由 OCR 处理，未发送交付邮件、公开发布材料或执行真实财务记账。
+开发前先阅读 [AGENT.md](AGENT.md)。其他入口：[架构](docs/architecture.md) · [恢复](docs/recovery.md) · [性能](docs/performance.md) · [补充思考](docs/insights.md) · [前端](frontend/README.md) · [便携环境](docs/portable-environment.md)。
