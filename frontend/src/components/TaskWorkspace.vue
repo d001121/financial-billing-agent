@@ -536,7 +536,7 @@ async function exportResult(draft = false) {
 </script>
 <template>
   <div class="task-workspace">
-    <div class="task-banner card">
+    <div class="task-banner">
       <div class="task-title">
         <div class="task-icon"><FileCheck /></div>
         <div>
@@ -641,7 +641,6 @@ async function exportResult(draft = false) {
         <ShieldCheckIcon />
         <div>
           <strong>{{ nextAction }}</strong>
-          <p>点击费用金额即可定位原文；修改内容后会生成新版本。</p>
         </div>
       </div>
       <div class="review-stat">
@@ -708,6 +707,7 @@ async function exportResult(draft = false) {
         task.summary || "您的修改已保存，智能体将根据当前版本继续核对。"
       }}</span>
     </div>
+    <div class="bill-review-layout" :class="{ 'has-assistant': !!task.thread_id }">
     <AgentPanel
       id="agent-conversation"
       v-if="task.thread_id"
@@ -775,6 +775,8 @@ async function exportResult(draft = false) {
                 ? "核对 AR/AP、单据编号、费用名称、金额、币种和付款方式，无误后确认即可。"
                 : confirmed
                   ? "当前账单已确认，可按需查看原件。"
+                  : task.status === 'completed_with_gaps' || reviewCompleted
+                    ? "费用已保存；未提供的信息保持为空，可按需核对或修订。"
                   : "处理尚未完成，以下信息仅供查看。"
           }}
         </p>
@@ -836,7 +838,6 @@ async function exportResult(draft = false) {
                 <th>金额</th>
                 <th>币种</th>
                 <th>付款方式</th>
-                <th>置信度</th>
               </tr>
             </thead>
             <tbody>
@@ -886,6 +887,7 @@ async function exportResult(draft = false) {
                       record.charge_details?.charge_item || "待确认"
                     }}</strong>
                   </button>
+                  <button :class="['score-badge', confidenceByCharge.get(record.charge_id)?.band]" title="查看置信度与原文" @click.stop="selectRecord(record)">{{ active ? '提取中' : confidenceLoading ? '计算中' : scoreLabel(record) }}</button>
                 </td>
                 <td>
                   <button
@@ -914,24 +916,6 @@ async function exportResult(draft = false) {
                     "
                   >
                     {{ record.charge_details?.payment_term || "未提供" }}
-                  </button>
-                </td>
-                <td>
-                  <button
-                    :class="[
-                      'score-badge',
-                      confidenceByCharge.get(record.charge_id)?.band,
-                    ]"
-                    title="查看置信度与原文"
-                    @click.stop="selectRecord(record)"
-                  >
-                    {{
-                      active
-                        ? "提取中"
-                        : confidenceLoading
-                          ? "计算中"
-                          : scoreLabel(record)
-                    }}
                   </button>
                 </td>
               </tr>
@@ -1156,6 +1140,7 @@ async function exportResult(draft = false) {
         </div>
       </section>
     </div>
+    </div>
     <MaterialPreviewDrawer
       v-if="previewTarget"
       :task="task"
@@ -1177,8 +1162,18 @@ async function exportResult(draft = false) {
   </div>
 </template>
 <style scoped>
+.bill-review-layout { display: grid; gap: 20px; min-width: 0; align-items: start; }
+.bill-review-layout > * { min-width: 0; }
+@media (min-width: 1160px) {
+  .bill-review-layout.has-assistant { grid-template-columns: minmax(0, 1fr) 318px; }
+  .bill-review-layout.has-assistant > .agent-panel { grid-column: 2; grid-row: 1; }
+  .bill-review-layout.has-assistant > .results-card { grid-column: 1; grid-row: 1; }
+  .bill-review-layout.has-assistant .charges-table:not(.full-fields) { min-width: 640px; }
+  .bill-review-layout.has-assistant .charges-table th,
+  .bill-review-layout.has-assistant .charges-table td { padding-left: 12px; padding-right: 12px; }
+}
 .results-card {
-  margin-top: 20px;
+  margin-top: 0;
 }
 .review-evidence {
   border-top: 1px solid var(--line);
@@ -2054,15 +2049,14 @@ details .code-block {
 
 /* Keep actions inside their own section; use one restrained color family. */
 .task-workspace {
-  --section-tint: #f1f5f2;
-  --section-border: #d4ded7;
-  gap: 20px;
+  --section-border: var(--line);
+  gap: 16px;
 }
 .task-banner {
-  background: var(--surface);
+  background: transparent;
   border-color: var(--section-border);
   align-items: center;
-  padding: 20px 22px;
+  padding: 2px 0 4px;
 }
 .task-banner .task-title {
   flex: 1;
@@ -2121,9 +2115,15 @@ details .code-block {
   background: #f8faf8;
 }
 .review-overview {
-  background: #edf3ef;
-  border-color: #d8e3db;
+  background: var(--primary-soft);
+  border-color: var(--line);
+  padding: 12px 18px;
 }
+.review-stat { display: flex; align-items: center; gap: 8px; padding-left: 16px; }
+.review-stat > strong { font-size: 18px; margin-top: 0; }
+.review-stat > .review-state { font-size: 14px; }
+.posting.AP { color: var(--primary); }
+.charges-table td, .charges-table strong { color: var(--ink); }
 .results-card {
   border-color: var(--section-border);
 }
@@ -2285,7 +2285,7 @@ details .code-block {
 }
 @media (max-width: 600px) {
   .task-banner {
-    padding: 16px;
+    padding: 0;
     gap: 14px;
   }
   .task-actions {
@@ -2294,6 +2294,9 @@ details .code-block {
     padding-top: 12px;
     border-top: 1px solid var(--line);
   }
+  .review-overview { gap: 12px; }
+  .review-stat { border: 0; padding: 0; }
+  .review-stat:last-child { display: none; }
   .task-actions button,
   .fee-actions button {
     min-height: 34px;

@@ -9,7 +9,6 @@ import {
   Monitor,
   Plus,
   ShieldCheck,
-  Waves,
 } from "@lucide/vue";
 import { formatDate, taskStatusLabels, type Task } from "../types/contracts";
 import {
@@ -174,13 +173,10 @@ const weeklyCount = computed(() =>
         </div>
       </div>
       <div class="journey" aria-label="账单处理流程">
-        <div class="journey-orbit" aria-hidden="true">
-          <Waves :size="56" /><span>HARBOR</span>
-        </div>
         <ol>
           <li>
             <span>01</span>
-            <div><strong>提交材料</strong><small>按次指定记账主体</small></div>
+            <div><strong>提交材料</strong><small>邮件与附件一并处理</small></div>
           </li>
           <li>
             <span>02</span>
@@ -467,9 +463,9 @@ const weeklyCount = computed(() =>
   gap: 30px;
   overflow: hidden;
   border: 1px solid #dce9e5;
-  border-radius: 18px;
-  background: #eff6f2;
-  padding: 34px 38px;
+  border-radius: var(--radius);
+  background: #edf4f1;
+  padding: 26px 30px;
 }
 .start-copy {
   position: relative;
@@ -489,7 +485,7 @@ const weeklyCount = computed(() =>
   border-radius: 100%;
 }
 .start-copy h2 {
-  font-size: clamp(27px, 2.5vw, 36px);
+  font-size: clamp(25px, 2.1vw, 32px);
   line-height: 1.45;
   letter-spacing: -0.8px;
   color: #183e37;
@@ -532,31 +528,6 @@ const weeklyCount = computed(() =>
   gap: 30px;
   justify-content: flex-end;
   position: relative;
-}
-.journey-orbit {
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 9px;
-  color: #7aa595;
-  width: 136px;
-  height: 136px;
-  border: 1px solid #bcd4c977;
-  border-radius: 100%;
-  box-shadow:
-    0 0 0 16px #e2ede64d,
-    0 0 0 34px #e2ede630;
-  flex-shrink: 0;
-}
-.journey-orbit svg {
-  width: 45px;
-  height: 45px;
-  stroke-width: 1;
-}
-.journey-orbit > span {
-  font-family: Georgia, serif;
-  font-size: 14px;
-  letter-spacing: 3px;
 }
 .journey ol {
   list-style: none;
@@ -1069,18 +1040,11 @@ const weeklyCount = computed(() =>
   .journey {
     gap: 42px;
   }
-  .journey-orbit {
-    width: 154px;
-    height: 154px;
-  }
   .start-copy h2 {
     font-size: 39px;
   }
 }
 @media (max-width: 1150px) {
-  .journey-orbit {
-    display: none;
-  }
   .journey {
     justify-content: center;
   }

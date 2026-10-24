@@ -1,0 +1,16 @@
+.harbor-app[data-motion="on"] main > section {
+  animation: workspace-arrive 240ms ease-out both;
+}
+.harbor-app[data-motion="off"] main > section {
+  animation: none;
+}
+.harbor-app[data-motion="off"] .sidebar nav a {
+  transition: none;
+}
+@keyframes workspace-arrive {
+  from { opacity: .6; transform: translateY(5px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .harbor-app main > section { animation: none !important; }
+}

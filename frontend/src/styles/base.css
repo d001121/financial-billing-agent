@@ -81,7 +81,7 @@ textarea {
   width: 100%;
   background: white;
   color: var(--ink);
-  border: 1px solid #dedee8;
+  border: 1px solid var(--line);
   border-radius: 8px;
   padding: 10px 12px;
   outline: none;
@@ -169,10 +169,10 @@ h3 {
   gap: 6px;
   padding: 4px 9px;
   border-radius: 6px;
-  background: #f1f2f7;
+  background: #edf2f0;
   font-size: 11px;
   font-weight: 500;
-  color: #6e7085;
+  color: #647a7e;
   white-space: nowrap;
 }
 .badge:before {
@@ -301,7 +301,7 @@ h3 {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: #1d183e66;
+  background: #183c465c;
   backdrop-filter: blur(3px);
   z-index: 100;
   display: flex;
@@ -315,8 +315,8 @@ h3 {
   max-height: calc(100dvh - 48px);
   overflow: auto;
   background: white;
-  border-radius: 18px;
-  box-shadow: 0 24px 80px #17112d33;
+  border-radius: 12px;
+  box-shadow: 0 24px 80px #173d4329;
 }
 .modal-head {
   padding: 23px 26px;
@@ -344,8 +344,8 @@ h3 {
   margin: 0;
   padding: 16px;
   border-radius: 9px;
-  background: #f6f7fb;
-  color: #66647d;
+  background: #f3f6f5;
+  color: #526b72;
   font:
     11px/1.75 "Cascadia Code",
     Consolas,

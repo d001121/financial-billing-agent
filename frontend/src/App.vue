@@ -18,10 +18,10 @@ import {
   LoaderCircle,
   Menu,
   Monitor,
-  Plus,
   RefreshCw,
   Settings2,
   UploadCloud,
+  Waves,
   X,
 } from "@lucide/vue";
 import { api, errorMessage } from "./api/client";
@@ -35,6 +35,9 @@ import { taskCategory, type TaskFilter } from "./utils/taskPresentation";
 import OverviewPage from "./pages/OverviewPage.vue";
 import TaskCenterPage from "./pages/TaskCenterPage.vue";
 import TaskComposer from "./components/TaskComposer.vue";
+import OceanBackdrop from "./components/OceanBackdrop.vue";
+import { useOceanMotion } from "./composables/useOceanMotion";
+const oceanMotion = useOceanMotion();
 const TaskWorkspace = defineAsyncComponent(
   () => import("./components/TaskWorkspace.vue"),
 );
@@ -279,12 +282,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <div class="harbor-app" :data-motion="oceanMotion.active.value ? 'on' : 'off'">
   <ControlScreenPage
     v-if="page === 'screen'"
     :tasks="tasks"
     :loading="loading"
     :stale="stale"
     :updated-at="updatedAt"
+    :motion-active="oceanMotion.active.value"
     @exit="navigate('/overview')"
     @open="openTask"
     @filter="showFilter"
@@ -302,20 +307,6 @@ onBeforeUnmount(() => {
       @click="closeMobileNav"
     />
     <aside :class="['sidebar', { 'is-open': mobileNav }]">
-      <a class="brand" href="#/overview" aria-label="航账工作总览"
-        ><span class="brand-mark"><Anchor /></span
-        ><span
-          ><strong>航账 <em>Harbor</em></strong
-          ><small>航运智能账单助手</small></span
-        ></a
-      >
-      <button
-        v-if="!isManagement"
-        class="sidebar-create"
-        @click="navigate('/new')"
-      >
-        <Plus :size="17" />提交新材料<ArrowRight :size="15" />
-      </button>
       <p class="nav-label" :class="{ 'manage-label': isManagement }">
         {{ isManagement ? "管理员控制台" : "日常工作" }}
       </p>
@@ -348,6 +339,7 @@ onBeforeUnmount(() => {
         <a href="#/screen" @click="mobileNav = false"
           ><Monitor />大屏总控<ArrowRight class="nav-arrow" :size="13"
         /></a>
+        <a href="#/new" :class="{ active: page === 'new' }" :aria-current="page === 'new' ? 'page' : undefined" @click="mobileNav = false"><UploadCloud />提交新材料</a>
       </nav>
       <nav v-else aria-label="管理导航">
         <a
@@ -395,6 +387,8 @@ onBeforeUnmount(() => {
     </aside>
     <div class="main-shell">
       <header class="topbar">
+        <OceanBackdrop :animated="oceanMotion.active.value" />
+        <a class="brand" href="#/overview" aria-label="航账工作总览"><span class="brand-mark"><Anchor /></span><span><strong>航账 <em>Harbor</em></strong><small>航运智能账单助手</small></span></a>
         <div class="topbar-left">
           <button
             id="mobile-menu-button"
@@ -409,6 +403,7 @@ onBeforeUnmount(() => {
           >
         </div>
         <div class="topbar-actions">
+          <button class="motion-toggle" role="switch" aria-label="波光动效" :aria-checked="oceanMotion.active.value" :disabled="oceanMotion.reduced.value" :title="oceanMotion.reduced.value ? '已跟随系统减少动态效果设置' : '开启或关闭海面光影与界面过渡'" @click="oceanMotion.enabled.value = !oceanMotion.enabled.value"><Waves :size="15" /><span>波光动效</span><span class="motion-state">{{ oceanMotion.active.value ? '开' : '关' }}</span></button>
           <button
             class="ghost console-entry"
             @click="navigate(isManagement ? '/overview' : '/management')"
@@ -578,6 +573,7 @@ onBeforeUnmount(() => {
       </main>
     </div>
   </div>
+  </div>
 </template>
 
 <style scoped>
@@ -588,17 +584,15 @@ onBeforeUnmount(() => {
   font-size: 12px;
   white-space: nowrap;
 }
-.admin-shell .sidebar {
-  background: #172a37;
-}
 .sidebar {
   width: var(--sidebar-width);
   position: fixed;
-  inset: 0 auto 0 0;
+  inset: var(--ocean-height) auto 0 0;
   z-index: 40;
-  background: var(--navy);
-  color: #d6e1e5;
-  padding: 30px 18px 0;
+  background: var(--sidebar-surface);
+  border-right: 1px solid var(--line);
+  color: var(--ink);
+  padding: 24px 12px 0;
   display: flex;
   flex-direction: column;
 }
@@ -606,8 +600,11 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 11px;
-  color: #fff;
-  padding: 0 10px;
+  color: var(--navy);
+  padding: 0 20px;
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  align-self: stretch;
   text-decoration: none;
 }
 .brand-mark {
@@ -615,61 +612,45 @@ onBeforeUnmount(() => {
   place-items: center;
   width: 39px;
   height: 42px;
-  color: #8de1c6;
-  border: 1px solid #80cdb333;
-  border-radius: 12px;
-  background: #70c4ac12;
+  color: #fff;
+  border: 1px solid #d6e8e5;
+  border-radius: 50%;
+  background: var(--primary);
 }
 .brand-mark svg {
   width: 24px;
   height: 24px;
 }
 .brand strong {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
   letter-spacing: 1px;
+  white-space: nowrap;
 }
 .brand em {
   font-family: Georgia, serif;
   font-style: normal;
-  font-size: 16px;
+  font-size: 14px;
   letter-spacing: -0.5px;
-  color: #a2b9bf;
+  color: #34575c;
   margin-left: 3px;
 }
 .brand small {
   display: block;
   font-size: 10px;
-  color: #93a9b2;
+  color: #47666b;
   margin-top: 3px;
   letter-spacing: 1.4px;
 }
-.sidebar-create {
-  background: #ddf5eb;
-  color: #153d36;
-  border-color: transparent;
-  margin: 32px 6px 29px;
-  padding: 12px;
-  border-radius: 9px;
-  justify-content: flex-start;
-  font-weight: 600;
-}
-.sidebar-create > svg:last-child {
-  margin-left: auto;
-}
-.sidebar-create:hover {
-  background: #bfe9d8;
-  border-color: transparent;
-}
 .nav-label {
-  color: #839aa4;
+  color: var(--muted);
   font-size: 10px;
   letter-spacing: 1.8px;
   padding: 0 17px;
   margin-bottom: 12px;
 }
 .manage-label {
-  margin-top: 32px;
+  margin-top: 0;
 }
 nav {
   display: grid;
@@ -679,33 +660,34 @@ nav a {
   display: flex;
   align-items: center;
   gap: 13px;
-  color: #b9cbd2;
+  color: #44636b;
   border-radius: 8px;
-  min-height: 46px;
-  padding: 11px 16px;
+  min-height: 44px;
+  padding: 10px 13px;
   font-size: 13px;
   text-decoration: none;
+  transition: background 180ms ease, color 180ms ease, box-shadow 180ms ease;
 }
 nav a svg {
   width: 18px;
   height: 18px;
-  color: #8ca8b4;
+  color: #608187;
 }
 nav a:hover {
-  background: #ffffff08;
-  color: #fff;
+  background: #e4eeea;
+  color: var(--primary);
 }
 nav a.active {
-  background: #d1f3e712;
-  color: #c5f1e1;
-  box-shadow: inset 3px 0 #8edec1;
+  background: #dfece7;
+  color: #205e56;
+  box-shadow: inset 3px 0 var(--primary);
 }
 nav a.active svg {
-  color: #92dcbf;
+  color: var(--primary);
 }
 .nav-count {
-  background: #92dec127;
-  color: #b8edd9;
+  background: #fff4de;
+  color: #90650f;
   border-radius: 5px;
   min-width: 22px;
   text-align: center;
@@ -734,17 +716,17 @@ nav a.active svg {
 }
 .workspace-note strong {
   font-size: 11px;
-  color: #c1d8d7;
+  color: #3d6665;
   font-weight: 500;
 }
 .workspace-note p {
-  color: #819aa6;
+  color: var(--muted);
   font-size: 11px;
   margin-top: 9px;
   line-height: 1.9;
 }
 .workspace-user {
-  border-top: 1px solid #ffffff0f;
+  border-top: 1px solid var(--line);
   display: flex;
   gap: 10px;
   padding: 20px 10px 24px;
@@ -754,11 +736,11 @@ nav a.active svg {
   width: 32px;
   height: 32px;
   border-radius: 9px;
-  background: #ffffff10;
+  background: #dfece7;
   display: grid;
   place-items: center;
   font-size: 12px;
-  color: #cbe8df;
+  color: var(--primary);
 }
 .workspace-user strong {
   display: block;
@@ -769,36 +751,45 @@ nav a.active svg {
   display: block;
   font-size: 10px;
   margin-top: 3px;
-  color: #849ca6;
+  color: var(--muted);
 }
 .main-shell {
   margin-left: var(--sidebar-width);
   min-width: 0;
+  padding-top: var(--ocean-height);
 }
 .topbar {
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: 30;
-  min-height: 70px;
+  left: 0;
+  right: 0;
+  z-index: 45;
+  min-height: var(--ocean-height);
   border-bottom: 1px solid var(--line);
-  background: #ffffffed;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: #d5e6e5;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 34px;
-  gap: 12px;
+  padding: 0 24px 0 0;
+  gap: 0;
 }
+.topbar > :not(.ocean-backdrop) { position: relative; z-index: 1; }
+.topbar-left { flex: 1; padding-left: 26px; }
+.topbar-actions { padding: 8px; border: 1px solid #ffffff70; background: #ffffffdf; border-radius: 10px; }
+.motion-toggle { border: 0; background: transparent; padding: 6px 8px; font-size: 11px; gap: 6px; white-space: nowrap; }
+.motion-state { color: var(--primary); font-size: 10px; font-weight: 700; padding-left: 3px; }
 .topbar-left,
 .topbar-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
 }
 .breadcrumb {
   font-size: 11px;
-  color: var(--muted);
+  color: #34585e;
+  background: #ffffffdb;
+  padding: 7px 10px;
+  border-radius: 6px;
 }
 .breadcrumb > span {
   margin: 0 12px;
@@ -835,8 +826,8 @@ nav a.active svg {
 main {
   max-width: 1680px;
   margin: 0 auto;
-  padding: 32px 34px 0;
-  min-height: calc(100vh - 70px);
+  padding: 26px 26px 0;
+  min-height: calc(100vh - var(--ocean-height));
   outline: none;
 }
 .connection-notice {
@@ -976,7 +967,7 @@ main {
     padding-inline: 12px;
   }
   .topbar {
-    padding-inline: 24px;
+    padding-right: 18px;
   }
   main {
     padding-inline: 24px;
@@ -988,6 +979,7 @@ main {
   .sync-label {
     display: none;
   }
+  .topbar-left { padding-left: 16px; }
 }
 @media (max-width: 800px) {
   .sidebar {
@@ -1014,9 +1006,17 @@ main {
     background: #0c202a77;
   }
   .topbar {
-    min-height: 62px;
-    padding: 0 18px;
+    min-height: var(--ocean-height);
+    padding: 0 12px;
   }
+  .brand { width: auto; padding: 0 12px 0 0; gap: 8px; }
+  .brand small, .brand em { display: none; }
+  .brand strong { white-space: nowrap; font-size: 17px; }
+  .brand-mark { width: 30px; height: 30px; }
+  .brand-mark svg { width: 19px; height: 19px; }
+  .topbar-left { padding-left: 0; }
+  .topbar-actions { gap: 4px; padding: 5px; }
+  .motion-toggle > span:not(.motion-state) { display: none; }
   .topbar-left,
   .topbar-actions {
     gap: 9px;
@@ -1066,6 +1066,9 @@ main {
   .topbar {
     padding: 0 12px;
   }
+  .breadcrumb { display: none; }
+  .console-entry { font-size: 0; padding: 7px; gap: 0; }
+  .motion-toggle { padding: 7px; }
   .breadcrumb {
     font-size: 10px;
   }

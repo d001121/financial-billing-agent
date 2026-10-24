@@ -1,18 +1,21 @@
 :root {
   font-family: "Aptos", "PingFang SC", "Microsoft YaHei", sans-serif;
-  color: #213b46;
-  background: #f5f6f3;
+  color: #203f47;
+  background: #f4f7f6;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --navy: #132c3a;
-  --teal-700: #246653;
-  --teal-800: #194f41;
-  --teal-50: #e8f2ed;
-  --canvas: #f5f6f3;
+  --navy: #163c48;
+  --teal-700: #286e65;
+  --teal-800: #205b54;
+  --teal-50: #e8f1ee;
+  --canvas: #f4f7f6;
   --surface: #fff;
-  --ink: #213b46;
-  --muted: #73858b;
-  --line: #e3e8e5;
+  --ink: #203f47;
+  --muted: #647c82;
+  --line: #dfe8e5;
+  --sidebar-surface: #edf3f1;
+  --section-tint: #f2f6f4;
+  --ocean-height: 100px;
   --primary: var(--teal-700);
   --primary-hover: var(--teal-800);
   --primary-soft: var(--teal-50);
@@ -22,12 +25,15 @@
   --amber-soft: #fff6e5;
   --red: #c84f61;
   --red-soft: #fff0f2;
-  --radius: 14px;
-  --shadow: 0 4px 24px #17392a04;
-  --sidebar-width: 232px;
+  --radius: 10px;
+  --shadow: 0 3px 18px #1d4e4304;
+  --sidebar-width: 200px;
 }
 @media (max-width: 1150px) {
   :root {
-    --sidebar-width: 214px;
+    --sidebar-width: 184px;
   }
+}
+@media (max-width: 800px) {
+  :root { --ocean-height: 76px; }
 }

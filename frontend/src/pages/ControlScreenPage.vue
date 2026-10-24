@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import OceanBackdrop from "../components/OceanBackdrop.vue";
 import {
   Anchor,
   ArrowLeft,
@@ -28,6 +29,7 @@ const props = defineProps<{
   loading: boolean;
   stale: boolean;
   updatedAt: string;
+  motionActive?: boolean;
 }>();
 const emit = defineEmits<{
   create: [];
@@ -152,6 +154,7 @@ const weekMax = computed(() =>
 <template>
   <div class="control-screen">
     <header class="screen-header">
+      <OceanBackdrop :animated="!!motionActive" />
       <div class="screen-brand">
         <span class="screen-logo"><Anchor /></span>
         <div>
@@ -488,13 +491,18 @@ const weekMax = computed(() =>
   );
 }
 .screen-header {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 20px;
-  padding-bottom: 22px;
+  padding: 20px;
   border-bottom: 1px solid #23404a;
 }
+.screen-header > .ocean-backdrop { opacity: .15; }
+.screen-header > :not(.ocean-backdrop) { position: relative; z-index: 1; }
 .screen-brand {
   display: flex;
   align-items: center;
