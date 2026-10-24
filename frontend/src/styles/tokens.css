@@ -27,11 +27,11 @@
   --red-soft: #fff0f2;
   --radius: 10px;
   --shadow: 0 3px 18px #1d4e4304;
-  --sidebar-width: 200px;
+  --harbor-sidebar-width: 200px;
 }
 @media (max-width: 1150px) {
   :root {
-    --sidebar-width: 184px;
+    --harbor-sidebar-width: 184px;
   }
 }
 @media (max-width: 800px) {

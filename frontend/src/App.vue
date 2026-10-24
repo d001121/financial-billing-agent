@@ -306,7 +306,7 @@ onBeforeUnmount(() => {
       aria-label="关闭导航"
       @click="closeMobileNav"
     />
-    <aside :class="['sidebar', { 'is-open': mobileNav }]">
+    <aside :class="['harbor-sidebar', { 'is-open': mobileNav }]">
       <p class="nav-label" :class="{ 'manage-label': isManagement }">
         {{ isManagement ? "管理员控制台" : "日常工作" }}
       </p>
@@ -584,8 +584,8 @@ onBeforeUnmount(() => {
   font-size: 12px;
   white-space: nowrap;
 }
-.sidebar {
-  width: var(--sidebar-width);
+.harbor-sidebar {
+  width: var(--harbor-sidebar-width);
   position: fixed;
   inset: var(--ocean-height) auto 0 0;
   z-index: 40;
@@ -602,7 +602,7 @@ onBeforeUnmount(() => {
   gap: 11px;
   color: var(--navy);
   padding: 0 20px;
-  width: var(--sidebar-width);
+  width: var(--harbor-sidebar-width);
   flex-shrink: 0;
   align-self: stretch;
   text-decoration: none;
@@ -754,7 +754,7 @@ nav a.active svg {
   color: var(--muted);
 }
 .main-shell {
-  margin-left: var(--sidebar-width);
+  margin-left: var(--harbor-sidebar-width);
   min-width: 0;
   padding-top: var(--ocean-height);
 }
@@ -963,7 +963,7 @@ main {
   }
 }
 @media (max-width: 1150px) {
-  .sidebar {
+  .harbor-sidebar {
     padding-inline: 12px;
   }
   .topbar {
@@ -982,12 +982,12 @@ main {
   .topbar-left { padding-left: 16px; }
 }
 @media (max-width: 800px) {
-  .sidebar {
+  .harbor-sidebar {
     transform: translateX(-100%);
     width: 242px;
     transition: transform 0.2s ease;
   }
-  .sidebar.is-open {
+  .harbor-sidebar.is-open {
     transform: translateX(0);
   }
   .main-shell {
@@ -1103,10 +1103,10 @@ main {
   }
 }
 @media (max-width: 800px) {
-  .sidebar {
+  .harbor-sidebar {
     visibility: hidden;
   }
-  .sidebar.is-open {
+  .harbor-sidebar.is-open {
     visibility: visible;
   }
 }

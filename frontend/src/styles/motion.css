@@ -4,7 +4,7 @@
 .harbor-app[data-motion="off"] main > section {
   animation: none;
 }
-.harbor-app[data-motion="off"] .sidebar nav a {
+.harbor-app[data-motion="off"] .harbor-sidebar nav a {
   transition: none;
 }
 @keyframes workspace-arrive {
