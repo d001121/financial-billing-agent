@@ -37,3 +37,7 @@ backend/evals/datasets/original-extraction-dev.json
 *.zip
 *.7z
 *.rar
+
+# Local document and image generation intermediates
+/tmp/
+/output/imagegen/

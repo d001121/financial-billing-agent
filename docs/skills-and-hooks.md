@@ -2,7 +2,7 @@
 
 更新日期：2026-10-21。本文补充 [implementation.md](implementation.md)，开发约定以 [AGENT.md](../AGENT.md) 为准。八个业务包、独立入口与十一类 Hook 已有实现；本文同时保留完整设计合同和尚待验收的边界。
 
-逐项实施、验证和交付统一按 [最终开发计划](superpowers/plans/2026-10-21-final-development-plan.md)；本文件维护业务包与Hook合同。
+本文件维护业务包与Hook合同；当前验证范围和未完成项统一见 [验收记录](acceptance.md)。
 
 ## 1. 核心边界
 

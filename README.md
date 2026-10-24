@@ -10,7 +10,7 @@
 
 [项目方案与逐项答辩](docs/project-solution.md) · [PDF 阅读版](output/pdf/Harbor_项目方案与笔试答辩.pdf) · [文档导航](docs/README.md) · [验证记录](docs/acceptance.md)
 
-![航账工作台：合成数据，仅展示界面与交互](docs/design/folio-implementation-20261024/desktop-1440-final.png)
+![航账工作台：合成数据，仅展示界面与交互](docs/assets/workspace-desktop.png)
 
 ## 三个工程支点
 
@@ -115,7 +115,7 @@ backend/
   api/ config/ mcp/   业务接口、配置与能力接入
   tests/ evals/       定向检查、评测及合成样本
 frontend/             Vue + TypeScript + Vite 工作台
-docs/                 方案、架构、历史测量与验收记录
+docs/                 方案、运行开发与必要验证证据
 output/pdf/           项目 PDF 阅读版
 start.cmd             Windows 启动入口
 ```
@@ -134,7 +134,7 @@ Python 直接依赖与完整锁分别在 `backend/requirements.txt`、`backend/r
 | 两文件离线模拟链路 3 次模型 HTTP | 简单主控路径已精简 | 不是线上平均调用次数 |
 | 最新前端 21 项定向检查、类型检查与构建；合成布局验证 | 当前界面相关路径有局部验证 | 不是全量业务回归 |
 
-较早第 4/8 项开发样本仅有 **2/4 包字段完全匹配**，其失败被用于修复；该成绩不能当作最终准确率。详细方法、版本和局限见 [项目报告](docs/project-solution.md)、[验收记录](docs/acceptance.md) 与 [研究目录](docs/research/)。
+较早第 4/8 项开发样本仅有 **2/4 包字段完全匹配**，其失败被用于修复；该成绩不能当作最终准确率。详细方法、版本和局限见 [项目报告](docs/project-solution.md) 与 [验收记录](docs/acceptance.md)。
 
 本轮界面与文档修订没有新增真实模型/OCR调用、没有运行全量测试、没有启停后端。实际开发应按改动范围选择离线检查；真实调用须遵守用户预算授权。外部财务正式入账、生产 SLA、权限体系和 VLM 增强仍属于进一步工作。
 

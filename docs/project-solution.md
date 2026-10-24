@@ -22,7 +22,7 @@
 
 用户提交材料后可查看各来源状态、六个核心字段、原文依据与核验结果；通过常驻聊天补充主体、提出问题或修改指定字段。人工修订产生新 Revision，旧审批失效；正式 JSON 导出必须通过当前版本校验及明确审批。
 
-![合成数据工作台，展示当前界面布局，不代表真实业务规模](design/folio-implementation-20261024/desktop-1440-final.png)
+![合成数据工作台，展示当前界面布局，不代表真实业务规模](assets/workspace-desktop.png)
 
 实现入口：backend/agents/factory.py；backend/middleware/assembly.py；backend/skills/；frontend/src/App.vue。
 
@@ -270,7 +270,7 @@ AR/AP 是记账视角下的业务结论，而非文档分类结果。主体是�
 
 引入真实账单家族金标、文档更正链和外部唯一业务键，评估“漏合并”和“误合并”两种错误。模糊匹配可用于候选召回，但不应单凭相似分数自动更新或合并财务记录。
 
-实现落点：human-review、evidence-linking、billing-reconciliation；docs/research/loop-controls-20261023.md；AGENT.md 中重复提取修复记录。
+实现落点：human-review、evidence-linking、billing-reconciliation；docs/research/loop-controls-20261023.md；backend/tests/test_simple_bundle.py。
 
 <!-- pagebreak -->
 
@@ -469,7 +469,7 @@ AR/AP 是记账视角下的业务结论，而非文档分类结果。主体是�
 
 本次界面与文档修订未跑全量测试、未新增真实模型/OCR调用，未启停后端。
 
-证据路径：docs/research/ocr-latency-optimization-20261023.md；extraction-harness-4-8-20261023.md；bill7-conversation-convergence-20261024.md；根 design-qa.md。
+证据路径：docs/research/ocr-latency-optimization-20261023.md；extraction-harness-4-8-20261023.md；bill7-conversation-convergence-20261024.md；docs/ui-design.md。
 
 <!-- pagebreak -->
 
@@ -498,6 +498,6 @@ AR/AP 是记账视角下的业务结论，而非文档分类结果。主体是�
 
 ### 本项目实现证据入口
 
-backend/agents/supervisor/prompt.md；backend/middleware/assembly.py；backend/harness/；backend/config/runtime.yaml；backend/config/hooks.yaml；backend/skills/；docs/research/automatic-history-20261023.md；docs/research/persistent-chat-20261023.md；docs/research/delegation-convergence-20261023.md；design-qa.md。
+backend/agents/supervisor/prompt.md；backend/middleware/assembly.py；backend/harness/；backend/config/runtime.yaml；backend/config/hooks.yaml；backend/skills/；docs/research/automatic-history-20261023.md；docs/research/persistent-chat-20261023.md；docs/research/delegation-convergence-20261023.md；docs/ui-design.md。
 
 评审阅读顺序：先看技术取舍和上下文工程，再按验收01-10逐项核对，最后结合验证范围判断可用性；将“已有实现”“历史实测”“可选增强”分别理解。

@@ -70,9 +70,9 @@ DOC转DOCX后保留原件/派生关系；Word派生PDF只用于预览。页码�
 
 ## 历史打包与迁移验证（本轮暂停）
 
-本轮按职责重构后的项目外运行时、原生扩展、OBS离线签名和pip check通过，证据为 `backend/tests/reports/responsibility-runtime.json`；用户已明确暂不处理交付包，以下保留上一轮打包方式和历史结果，不作为当前结论。上一轮目录集中已将解释器、入口和后端资源归入 `backend/`。新结构工作区已通过161项回归（30.93秒）、项目外运行时/SDK离线签名与pip check，官方服务四HTTP检查全200，三个历史任务及原中断和原件保留，见[验收记录](acceptance.md)。新结构完整候选ZIP从中文空格迁移目录、项目外工作目录通过161项回归（61.19秒），运行时/SDK/依赖/MCP、服务与历史状态检查全部通过，证据见[便携交付](portability.md)。当时的标准名交付包已收录该阶段文档和报告；下方140/161项旧报告保留为目录调整前的历史证据，其中绝对路径与候选哈希不改写。
+本轮按职责重构后的项目外运行时、原生扩展、OBS离线签名和pip check通过，证据为 `backend/tests/reports/responsibility-runtime.json`；用户已明确暂不处理交付包，以下保留上一轮打包方式和历史结果，不作为当前结论。上一轮目录集中已将解释器、入口和后端资源归入 `backend/`。新结构工作区已通过161项回归（30.93秒）、项目外运行时/SDK离线签名与pip check，官方服务四HTTP检查全200，三个历史任务及原中断和原件保留，见[验收记录](acceptance.md)。新结构完整候选ZIP从中文空格迁移目录、项目外工作目录通过161项回归（61.19秒），运行时/SDK/依赖/MCP、服务与历史状态检查全部通过，证据见[相关验证范围](acceptance.md)。当时的标准名交付包已收录该阶段文档和报告；下方140/161项旧报告保留为目录调整前的历史证据，其中绝对路径与候选哈希不改写。
 
-完整应用的交付入口及状态边界见 [便携交付](portability.md)。构建后的 Vue 页面随包提供，启动不要求安装 Node.js；从根目录运行 `start.cmd`，界面为 `http://127.0.0.1:2024/app/`。
+完整应用的交付入口及状态边界见 [相关验证范围](acceptance.md)。构建后的 Vue 页面随包提供，启动不要求安装 Node.js；从根目录运行 `start.cmd`，界面为 `http://127.0.0.1:2024/app/`。
 
 ```powershell
 .\backend\python.cmd .\backend\scripts\package-app.py --include-state
@@ -87,7 +87,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\backend\scripts\verify-app
 
 2026-10-21 补齐 MCP 依赖后，已重新通过 `pip check`、ZIP 解压到含中文和空格的新目录、从项目外启动的验证；Python、LangChain、MCP 依赖、加密及 Windows 原生扩展均能加载，本地 stdio 工具发现及发现上下文退出后调用也通过。该次运行时 ZIP 为 75,985,240 字节，验证产物保存在 `.build/portability-86934de7cdc14339848796894624d3d4/`。这是当前 Windows x64 机器上的环境迁移检查，尚未验证业务流程。
 
-OBS 接入前的完整应用包曾在 `.build/迁移 空格-1885b544/` 通过 140 项离线测试及目录迁移，历史报告保留为 `backend/tests/reports/app-portability.json`。上一轮含 `esdk-obs-python==3.26.6` 的候选已在 `.build/迁移 空格-2e9fd76f/` 重新通过：运行时与 SDK 离线签名、依赖、真实 stdio MCP、161 项离线测试及 4 个子测试、第二端口服务与 Vue 生产页、GaussDB/Redis 健康、三个任务的 checkpoint/消息/中断、旧 EML 原件哈希及已批准 Excel 的两条正式导出。原始测试为 43 warnings、41.16 秒；未恢复中断、未调用在线模型、未修改 `backend/.env`。新版报告为 `backend/tests/reports/app-portability-obs.json`，测试输出为 `backend/tests/reports/app-portability-obs-tests.txt`。真实 OBS/OCR 已在原工作目录验证，迁移时不重复外部调用。路径长度、候选与最终包哈希区别和外部服务边界见 [便携交付](portability.md)。这是当前 Windows x64 主机上的目录迁移，不代表真实旧 DOC 或跨操作系统兼容性已经验收。
+OBS 接入前的完整应用包曾在 `.build/迁移 空格-1885b544/` 通过 140 项离线测试及目录迁移，历史报告保留为 `backend/tests/reports/app-portability.json`。上一轮含 `esdk-obs-python==3.26.6` 的候选已在 `.build/迁移 空格-2e9fd76f/` 重新通过：运行时与 SDK 离线签名、依赖、真实 stdio MCP、161 项离线测试及 4 个子测试、第二端口服务与 Vue 生产页、GaussDB/Redis 健康、三个任务的 checkpoint/消息/中断、旧 EML 原件哈希及已批准 Excel 的两条正式导出。原始测试为 43 warnings、41.16 秒；未恢复中断、未调用在线模型、未修改 `backend/.env`。新版报告为 `backend/tests/reports/app-portability-obs.json`，测试输出为 `backend/tests/reports/app-portability-obs-tests.txt`。真实 OBS/OCR 已在原工作目录验证，迁移时不重复外部调用。路径长度、候选与最终包哈希区别和外部服务边界见 [相关验证范围](acceptance.md)。这是当前 Windows x64 主机上的目录迁移，不代表真实旧 DOC 或跨操作系统兼容性已经验收。
 
 本地 MCP 验证使用 `sys.executable` 的项目私有解释器和绝对脚本路径，不调用可能记录旧路径的 `Scripts/*.exe`。在当前单服务 MCPConfig 下，发现的工具名为 `add`，调用 `19 + 23` 得到 `42`。这验证真实本地协议与适配器，不代表外部 MCP 的认证、网络或业务工具已通过。迁移脚本已纳入相同的 MCP 检查。
 

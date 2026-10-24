@@ -1,6 +1,6 @@
 # Harbor 后端
 
-`backend/` 是后端工程，也是 Python 包本身。它组合 LangChain 主控、Deep Agents 专家、官方 Agent Server 和业务 API；领域规则保留在七个业务 Skill。开发约定统一维护在根 [AGENT.md](../AGENT.md)。
+`backend/` 是后端工程，也是 Python 包本身。它组合 LangChain 主控、Deep Agents 专家、官方 Agent Server 和业务 API；领域规则保留在八个业务 Skill。开发约定统一维护在根 [AGENT.md](../AGENT.md)。
 
 ## 运行
 
@@ -26,7 +26,7 @@
 | `api/` | FastAPI 装配；health/assets/tasks/reviews/exports/extensions/improvements 路由 |
 | `infrastructure/` | 模型适配、事务仓储、资产定位和官方 SQLite 检查点生命周期 |
 | `config/` | 设置、配置 schema/校验/事务、角色提示词解析及五类 YAML |
-| `skills/` | 七个业务包，各含 SKILL.md、references、scripts 和独立测试 |
+| `skills/` | 八个业务包，各含 SKILL.md、references、scripts 和独立测试 |
 | `tests/`、`evals/`、`examples/` | 宿主与跨包验证、固定评测及已验收输出 |
 | `data/` | samples 原题样本、assets 原件/派生件、releases 固定 Skill、SQLite |
 | `scripts/` | 环境、迁移及测量等工程工具 |
@@ -41,11 +41,11 @@
 
 ```powershell
 .\python.cmd -m pip check
-.\python.cmd -m pytest -q tests skills
+.\python.cmd -m pytest -q tests/test_simple_bundle.py
 ```
 
 从仓库根调用时，解释器、脚本、测试路径均加 `backend/`。本地 dev 元数据位于 `.langgraph_api/`，临时缓存与迁移工作目录在 `.build/`。
 
-本轮按职责重构已完成全量163项回归（43 warnings、4 subtests、68.90秒），后续配置修复定向40项通过（28.73秒），项目外运行时与pip check通过。官方服务四HTTP全200，三个历史任务的检查点、消息、原中断和revision保留，未新建或恢复Agent运行。报告为 `tests/reports/responsibility-tests.txt`、`responsibility-configuration-tests.txt`、`responsibility-runtime.json` 和 `responsibility-after.json`。用户已明确先完成需求，交付包制作、更新和迁移暂缓。
+上面给出简单材料链路的定向离线检查示例；实际选择与改动相符的测试文件。遵守用户成本约束，不默认跑全量或真实模型/OCR。既有结果与未验证项统一在 [验收记录](../docs/acceptance.md) 维护，历史全量成绩不代表当前版本。
 
 扩展约定见 [Skill 与 Hook](../docs/skills-and-hooks.md)，运行时来源见 [便携环境](../docs/portable-environment.md)，验收范围见 [验收记录](../docs/acceptance.md)。职责迁移不改写历史任务规则版本、原始响应或已发布 Skill，也不自动续跑人工中断。
