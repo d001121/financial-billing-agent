@@ -190,7 +190,7 @@ class Report(BaseDocTemplate):
         for y, label, page in [
             (238, "项目概要、技术取舍与上下文工程", "02-04"),
             (212, "十项验收：问题、方案、理由与增强路径", "05-14"),
-            (186, "标准输出、验证证据与评审演示", "15-17"),
+            (186, "异常恢复、标准输出与评审证据", "15-18"),
         ]:
             c.drawString(MARGIN, y, label)
             c.drawRightString(PAGE_W - MARGIN, y, page)
@@ -204,7 +204,8 @@ class Report(BaseDocTemplate):
 
 
 def parse_section(section: str, source: Path, index: int) -> list:
-    styles = make_styles(dense=index in (12, 16))
+    styles = make_styles(dense=any(title in section for title in (
+        "## 验收 09", "## 14 异常恢复", "## 17 演示")))
     lines = section.strip().splitlines()
     flows = []
     i = 0
